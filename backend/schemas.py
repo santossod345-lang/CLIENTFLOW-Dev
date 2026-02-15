@@ -1,3 +1,7 @@
+
+from pydantic import BaseModel
+from datetime import datetime
+
 class EmpresaOut(BaseModel):
     id: int
     nome_empresa: str
@@ -11,9 +15,6 @@ class EmpresaOut(BaseModel):
     ativo: int | None = None
     class Config:
         orm_mode = True
-
-from pydantic import BaseModel
-from datetime import datetime
 
 class EmpresaLogin(BaseModel):
     email_login: str
