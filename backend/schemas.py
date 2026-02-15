@@ -1,3 +1,4 @@
+from pydantic import BaseModel
 class EmpresaLogin(BaseModel):
     email_login: str
     senha: str
