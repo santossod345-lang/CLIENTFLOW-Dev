@@ -1,3 +1,44 @@
+                <!-- NOTIFICAÇÃO DE RETORNOS PRÓXIMOS -->
+                <div id="notificacao-retorno" class="toast" style="display:none;top:32px;bottom:auto;right:32px;"></div>
+                <!-- PAINEL DE LOGS DE AÇÕES -->
+                <section id="logs-section" class="section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Logs de Ações (Auditoria)</h3>
+                            <button class="btn-secondary" onclick="carregarLogsAcoes()">🔄 Atualizar</button>
+                        </div>
+                        <div id="logs-acoes-list" class="list-container" style="max-height:320px;overflow:auto;"></div>
+                    </div>
+                </section>
+<!-- ONBOARDING/DICAS PARA NOVOS USUÁRIOS -->
+<div id="onboarding-modal" class="modal" style="display:none;">
+    <div class="modal-content" style="max-width:420px;">
+        <span class="close" onclick="fecharOnboarding()">&times;</span>
+        <h3>Bem-vindo ao ClientFlow!</h3>
+        <ul style="margin:18px 0 0 0; padding-left:18px;">
+            <li>Cadastre clientes e atendimentos facilmente.</li>
+            <li>Use a busca global para encontrar qualquer cliente.</li>
+            <li>Edite ou exclua registros clicando nos botões ✏️ ou 🗑️.</li>
+            <li>Veja estatísticas, rankings e retornos previstos no dashboard.</li>
+            <li>Exporte dados ou receba notificações de retorno (menu lateral).</li>
+        </ul>
+        <button onclick="fecharOnboarding()" style="margin-top:18px;">Começar</button>
+    </div>
+</div>
+<!-- SPINNER LOADING GLOBAL -->
+<div id="global-loading" class="spinner-overlay" style="display:none;">
+    <div class="spinner"></div>
+</div>
+<!-- TOAST FEEDBACK -->
+<div id="toast-feedback" class="toast" style="display:none;"></div>
+<!-- MODAL DE EDIÇÃO GENÉRICO -->
+<div id="modal-edicao" class="modal" style="display:none;">
+    <div class="modal-content">
+        <span class="close" onclick="fecharModalEdicao()">&times;</span>
+        <h3 id="modal-edicao-titulo">Editar</h3>
+        <form id="form-edicao" onsubmit="salvarEdicao(event)"></form>
+    </div>
+</div>
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -46,10 +87,57 @@
             <header class="top-bar">
                 <h1 id="page-title">Dashboard</h1>
             </header>
+            <!-- SEÇÃO INTELIGÊNCIA ARTIFICIAL -->
+            <section id="ia-section" class="section active">
+                <div class="card">
+                    <h3>Inteligência Artificial</h3>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+                        <button class="btn-primary" onclick="analisarClienteIA()">Analisar Cliente</button>
+                        <button class="btn-primary" onclick="verSugestoesIA()">Ver Sugestões</button>
+                        <button class="btn-primary" onclick="verInsightsIA()">Ver Insights</button>
+                        <button class="btn-primary" onclick="gerarResumoIA()">Gerar Resumo</button>
+                    </div>
+                    <div style="margin-bottom:12px;">
+                        <input type="text" id="pergunta-ia" placeholder="Perguntar à IA..." style="width:60%;">
+                        <button class="btn-secondary" onclick="perguntarIA()">Perguntar</button>
+                    </div>
+                    <div id="ia-resposta" class="message" style="display:none;"></div>
+                </div>
+            </section>
             
             <div class="content-area">
+                <!-- ÁREA CLIENTES PARA RETORNO -->
+                                <!-- CAMPO DE BUSCA GLOBAL -->
+                                <section id="busca-section" class="section active">
+                                    <div class="card card-busca">
+                                        <input type="text" id="busca-global" placeholder="Buscar cliente por nome ou telefone..." oninput="handleBuscaGlobal()">
+                                        <div id="resultados-busca" class="list-container"></div>
+                                    </div>
+                                </section>
+                <section id="retorno-section" class="section active">
+                    <div class="card card-retorno">
+                        <h3>Clientes para retorno</h3>
+                        <div id="clientes-retorno" class="list-container">
+                            <p>Carregando...</p>
+                        </div>
+                    </div>
+                </section>
                 <!-- SEÇÃO DASHBOARD -->
                 <section id="dashboard-section" class="section active">
+                    <div class="top-blocks">
+                        <div class="card card-clientes-recentes">
+                            <h3>Clientes Recentes</h3>
+                            <div id="clientes-recentes" class="list-container">
+                                <p>Carregando...</p>
+                            </div>
+                        </div>
+                        <div class="card card-atendimentos-recentes">
+                            <h3>Atendimentos Recentes</h3>
+                            <div id="atendimentos-recentes" class="list-container">
+                                <p>Carregando...</p>
+                            </div>
+                        </div>
+                    </div>
                     <div class="stats-grid">
                         <div class="stat-card">
                             <div class="stat-icon">👥</div>
@@ -58,7 +146,6 @@
                                 <p class="stat-number" id="total-clientes">0</p>
                             </div>
                         </div>
-                        
                         <div class="stat-card">
                             <div class="stat-icon">📝</div>
                             <div class="stat-info">
@@ -66,13 +153,54 @@
                                 <p class="stat-number" id="total-atendimentos">0</p>
                             </div>
                         </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">✅</div>
+                            <div class="stat-info">
+                                <h3>Clientes Ativos</h3>
+                                <p class="stat-number" id="total-clientes-ativos">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">⏸️</div>
+                            <div class="stat-info">
+                                <h3>Clientes Inativos</h3>
+                                <p class="stat-number" id="total-clientes-inativos">0</p>
+                            </div>
+                        </div>
                     </div>
-                    
                     <div class="card">
-                        <h3>Atendimentos Recentes</h3>
-                        <div id="atendimentos-recentes" class="list-container">
+                                                                        <h3>Ranking de Clientes Mais Ativos</h3>
+                                                                        <div id="ranking-clientes" class="list-container">
+                                                                            <p>Carregando...</p>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="card">
+                                                                        <h3>Serviços Mais Comuns</h3>
+                                                                        <div id="servicos-comuns" class="list-container">
+                                                                            <p>Carregando...</p>
+                                                                        </div>
+                                                <h3>Clientes que devem retornar</h3>
+                                                <div id="clientes-para-retorno" class="list-container">
+                                                    <p>Carregando...</p>
+                                                </div>
+                                            </div>
+                                            <div class="card">
+                                                <h3>Clientes inativos</h3>
+                                                <div id="clientes-inativos" class="list-container">
+                                                    <p>Carregando...</p>
+                                                </div>
+                        <h3>Estatísticas</h3>
+                        <div id="estatisticas-dashboard" class="list-container">
                             <p>Carregando...</p>
                         </div>
+                    </div>
+                    <div class="card">
+                        <h3>Atendimentos por mês</h3>
+                        <canvas id="grafico-atendimentos" height="80"></canvas>
+                    </div>
+                    <div class="card">
+                        <h3>Novos clientes por mês</h3>
+                        <canvas id="grafico-clientes" height="80"></canvas>
                     </div>
                 </section>
                 
@@ -81,11 +209,33 @@
                     <div class="card">
                         <div class="card-header">
                             <h3>Lista de Clientes</h3>
+                            <input type="text" id="filtro-clientes" placeholder="Filtrar clientes..." oninput="filtrarClientesTabela()" style="margin-left:16px;max-width:220px;">
                             <button class="btn-secondary" onclick="loadClientes()">🔄 Atualizar</button>
+                            <button class="btn-secondary" onclick="exportarCSV('clientes')">⬇️ Exportar CSV</button>
                         </div>
                         <div id="clientes-list" class="list-container">
-                            <p>Carregando...</p>
+                            <table class="tabela-clientes">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Telefone</th>
+                                        <th>Data Cadastro</th>
+                                        <th></th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="clientes-tbody">
+                                    <tr><td colspan="5">Carregando...</td></tr>
+                                </tbody>
+                            </table>
                         </div>
+                    </div>
+                    <!-- HISTÓRICO POR CLIENTE -->
+                    <div class="card" id="historico-cliente-card" style="display:none;">
+                        <h3>Histórico do Cliente</h3>
+                        <div id="cliente-total-gasto" style="margin-bottom:10px;font-weight:bold;color:#1a7f37;"></div>
+                        <div id="historico-cliente" class="list-container"></div>
+                        <button class="btn-secondary" onclick="fecharHistoricoCliente()">Fechar</button>
                     </div>
                 </section>
                 
@@ -95,9 +245,34 @@
                         <div class="card-header">
                             <h3>Lista de Atendimentos</h3>
                             <button class="btn-secondary" onclick="loadAtendimentos()">🔄 Atualizar</button>
+                            <button class="btn-secondary" onclick="exportarCSV('atendimentos')">⬇️ Exportar CSV</button>
                         </div>
                         <div id="atendimentos-list" class="list-container">
-                            <p>Carregando...</p>
+                            <div style="margin-bottom:12px;">
+                                <label for="filtro-periodo">Filtrar por período:</label>
+                                <select id="filtro-periodo" onchange="loadAtendimentos()">
+                                    <option value="">Todos</option>
+                                    <option value="hoje">Hoje</option>
+                                    <option value="semana">Essa semana</option>
+                                    <option value="mes">Esse mês</option>
+                                </select>
+                            </div>
+                            <table class="tabela-atendimentos">
+                                <thead>
+                                    <tr>
+                                        <th>Cliente</th>
+                                        <th>Tipo Serviço</th>
+                                        <th>Descrição</th>
+                                        <th>Status</th>
+                                        <th>Data</th>
+                                        <th></th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="atendimentos-tbody">
+                                    <tr><td colspan="7">Carregando...</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </section>
@@ -115,6 +290,11 @@
                             <div class="form-group">
                                 <label for="cliente-telefone">Telefone</label>
                                 <input type="tel" id="cliente-telefone" required placeholder="(11) 99999-9999">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="cliente-anotacoes">Anotações rápidas</label>
+                                <textarea id="cliente-anotacoes" placeholder="Observações, lembretes, etc..." rows="2"></textarea>
                             </div>
                             
                             <button type="submit" class="btn-primary">Cadastrar Cliente</button>
@@ -168,6 +348,7 @@
         </main>
     </div>
     
+    <script src="chart.min.js"></script>
     <script src="script.js"></script>
     <script>
         // Variáveis globais
@@ -179,21 +360,19 @@
             // Verificar autenticação
             const token = localStorage.getItem('token');
             const empresaData = localStorage.getItem('empresa');
-            
             if (!token || !empresaData) {
                 window.location.href = 'login.html';
                 return;
             }
-            
             empresaAtual = JSON.parse(empresaData);
-            
             // Mostrar informações da empresa
             document.getElementById('empresa-nome').textContent = empresaAtual.nome_empresa;
             document.getElementById('empresa-nicho').textContent = empresaAtual.nicho;
-            
-            // Carregar dados do dashboard
+            // Carregar dados das novas áreas
             loadDashboard();
             loadClientesForSelect();
+            loadClientesRetorno();
+            loadEstatisticasDashboard();
         }
         
         async function loadDashboard() {
@@ -248,7 +427,7 @@
                         container.innerHTML = '<p>Nenhum cliente cadastrado ainda.</p>';
                     } else {
                         container.innerHTML = clientes.map(cliente => `
-                            <div class="list-item">
+                            <div class="list-item" onclick="mostrarHistoricoCliente(${cliente.id}, '${cliente.nome}')">
                                 <div>
                                     <strong>${cliente.nome}</strong>
                                     <p>📱 ${cliente.telefone}</p>
@@ -326,7 +505,8 @@
             const token = localStorage.getItem('token');
             const cliente = {
                 nome: document.getElementById('cliente-nome').value,
-                telefone: document.getElementById('cliente-telefone').value
+                telefone: document.getElementById('cliente-telefone').value,
+                anotacoes_rapidas: document.getElementById('cliente-anotacoes')?.value || ''
             };
             
             try {
@@ -342,11 +522,13 @@
                 
                 if (response.ok) {
                     showMessageInSection('message-cliente', 'Cliente cadastrado com sucesso!', 'success');
+                    showToast('Cliente cadastrado com sucesso!', 'success');
                     document.getElementById('form-novo-cliente').reset();
                     loadClientesForSelect();
                     loadDashboard();
                 } else {
                     showMessageInSection('message-cliente', data.detail || 'Erro ao cadastrar cliente', 'error');
+                    showToast(data.detail || 'Erro ao cadastrar cliente', 'error');
                 }
             } catch (error) {
                 showMessageInSection('message-cliente', 'Erro ao conectar com o servidor', 'error');
@@ -361,7 +543,8 @@
                 cliente_id: parseInt(document.getElementById('atendimento-cliente').value),
                 tipo: document.getElementById('atendimento-tipo').value,
                 veiculo: document.getElementById('atendimento-veiculo').value || null,
-                descricao: document.getElementById('atendimento-descricao').value
+                descricao: document.getElementById('atendimento-descricao').value,
+                status_atendimento: document.getElementById('atendimento-status').value
             };
             
             try {
@@ -377,10 +560,12 @@
                 
                 if (response.ok) {
                     showMessageInSection('message-atendimento', 'Atendimento registrado com sucesso!', 'success');
+                    showToast('Atendimento registrado com sucesso!', 'success');
                     document.getElementById('form-novo-atendimento').reset();
                     loadDashboard();
                 } else {
                     showMessageInSection('message-atendimento', data.detail || 'Erro ao registrar atendimento', 'error');
+                    showToast(data.detail || 'Erro ao registrar atendimento', 'error');
                 }
             } catch (error) {
                 showMessageInSection('message-atendimento', 'Erro ao conectar com o servidor', 'error');

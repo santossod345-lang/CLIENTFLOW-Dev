@@ -1,0 +1,2 @@
+# Log de ações importantes do ClientFlow
+# Formato: [LOG] Empresa <id> | Usuário: <nome> | <ação> | <data>

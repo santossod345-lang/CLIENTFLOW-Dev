@@ -1,150 +1,106 @@
-"""
-API Principal do ClientFlow - Sistema SaaS Multi-Tenant
-"""
-from fastapi import FastAPI, Depends, HTTPException, status
+﻿# ========== IMPORTS E DEFINIÇÕES ÚNICOS =====
+
+# ===== IMPORTS E DEFINIÇÕES ÚNICOS =====
+from fastapi import FastAPI, Body, Depends, HTTPException, status, Query
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+import ai_module
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr
 from typing import List, Optional
 from datetime import datetime
-
-import database
 import models
+import database
+import services
+from models import LogAcao
 import auth
 
-# Criar tabelas no banco de dados
-models.Base.metadata.create_all(bind=database.engine)
-
-# Inicializar FastAPI
 app = FastAPI(title="ClientFlow API", version="1.0.0")
-
-# Configurar CORS para permitir requisições do frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Em produção, especificar domínios
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+models.Base.metadata.create_all(bind=database.engine)
+active_sessions = {}  # {token: empresa_id}
 
+# ========== FUNÇÃO DE SESSÃO ========== 
+def get_current_empresa(token: str, db: Session = Depends(database.get_db)) -> models.Empresa:
+    if token not in active_sessions:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sessão inválida ou expirada")
+    empresa_id = active_sessions[token]
+    empresa = db.query(models.Empresa).filter(models.Empresa.id == empresa_id).first()
+    if not empresa:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Empresa não encontrada")
+    return empresa
 
-# ========== SCHEMAS PYDANTIC ==========
+# ========== ENDPOINTS PRINCIPAIS ========== 
 
-class EmpresaCreate(BaseModel):
-    nome_empresa: str
-    nicho: str
-    telefone: str
-    email_login: EmailStr
-    senha: str
-
-
-class EmpresaLogin(BaseModel):
-    email_login: EmailStr
-    senha: str
-
-
-class EmpresaResponse(BaseModel):
+from fastapi.encoders import jsonable_encoder
+# ========== ENDPOINTS DE CLIENTES ========== 
+class ClienteOut(BaseModel):
     id: int
-    nome_empresa: str
-    nicho: str
+    nome: str
     telefone: str
-    email_login: str
-    data_cadastro: datetime
-    
+    anotacoes_rapidas: str = ""
+    data_primeiro_contato: datetime
     class Config:
-        from_attributes = True
+        orm_mode = True
 
+@app.get("/api/clientes", response_model=List[ClienteOut])
+def listar_clientes(
+    token: str = Query(...),
+    db: Session = Depends(database.get_db)
+):
+    empresa = get_current_empresa(token, db)
+    clientes = db.query(models.Cliente).filter(models.Cliente.empresa_id == empresa.id).order_by(models.Cliente.data_primeiro_contato.desc()).all()
+    return clientes
+from fastapi import Request
 
 class ClienteCreate(BaseModel):
     nome: str
     telefone: str
+    anotacoes_rapidas: str = ""
 
+@app.post("/api/clientes", status_code=status.HTTP_201_CREATED)
+def criar_cliente(
+    cliente: ClienteCreate,
+    token: str = Query(...),
+    db: Session = Depends(database.get_db)
+):
+    empresa = get_current_empresa(token, db)
+    # Verifica duplicidade por telefone para a empresa
+    existente = db.query(models.Cliente).filter(
+        models.Cliente.empresa_id == empresa.id,
+        models.Cliente.telefone == cliente.telefone
+    ).first()
+    if existente:
+        raise HTTPException(status_code=400, detail="Cliente já cadastrado com este telefone.")
+    novo_cliente = models.Cliente(
+        empresa_id=empresa.id,
+        nome=cliente.nome,
+        telefone=cliente.telefone,
+        anotacoes_rapidas=cliente.anotacoes_rapidas
+    )
+    db.add(novo_cliente)
+    db.commit()
+    db.refresh(novo_cliente)
+    return {
+        "id": novo_cliente.id,
+        "nome": novo_cliente.nome,
+        "telefone": novo_cliente.telefone,
+        "anotacoes_rapidas": novo_cliente.anotacoes_rapidas,
+        "data_primeiro_contato": novo_cliente.data_primeiro_contato
+    }
 
-class ClienteResponse(BaseModel):
-    id: int
-    empresa_id: int
-    nome: str
-    telefone: str
-    data_primeiro_contato: datetime
-    
-    class Config:
-        from_attributes = True
-
-
-class AtendimentoCreate(BaseModel):
-    cliente_id: int
-    tipo: str
-    descricao: str
-    veiculo: Optional[str] = None
-
-
-class AtendimentoResponse(BaseModel):
-    id: int
-    empresa_id: int
-    cliente_id: int
-    tipo: str
-    descricao: str
-    veiculo: Optional[str]
-    data: datetime
-    
-    class Config:
-        from_attributes = True
-
-
-class AtendimentoDetailResponse(AtendimentoResponse):
-    cliente_nome: str
-    cliente_telefone: str
-    
-    class Config:
-        from_attributes = True
-
-
-# ========== SISTEMA DE SESSÃO SIMPLES ==========
-# Em produção, usar JWT ou Redis
-active_sessions = {}  # {token: empresa_id}
-
-
-def get_current_empresa(token: str, db: Session = Depends(database.get_db)) -> models.Empresa:
-    """
-    Valida o token de sessão e retorna a empresa autenticada
-    """
-    if token not in active_sessions:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Sessão inválida ou expirada"
-        )
-    
-    empresa_id = active_sessions[token]
-    empresa = db.query(models.Empresa).filter(models.Empresa.id == empresa_id).first()
-    
-    if not empresa:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Empresa não encontrada"
-        )
-    
-    return empresa
-
-
-# ========== ROTAS DE AUTENTICAÇÃO ==========
-
-@app.post("/api/empresas/cadastrar", response_model=EmpresaResponse, status_code=status.HTTP_201_CREATED)
-def cadastrar_empresa(empresa: EmpresaCreate, db: Session = Depends(database.get_db)):
-    """
-    Cadastra uma nova empresa no sistema
-    """
-    # Verificar se o email já existe
+@app.post("/api/empresas/cadastrar", response_model=models.Empresa, status_code=status.HTTP_201_CREATED)
+def cadastrar_empresa(empresa: services.EmpresaCreate, db: Session = Depends(database.get_db)):
     existing = db.query(models.Empresa).filter(models.Empresa.email_login == empresa.email_login).first()
     if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email já cadastrado"
-        )
-    
-    # Criar hash da senha
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email já cadastrado")
     senha_hash = auth.get_password_hash(empresa.senha)
-    
-    # Criar nova empresa
     nova_empresa = models.Empresa(
         nome_empresa=empresa.nome_empresa,
         nicho=empresa.nicho,
@@ -152,39 +108,18 @@ def cadastrar_empresa(empresa: EmpresaCreate, db: Session = Depends(database.get
         email_login=empresa.email_login,
         senha_hash=senha_hash
     )
-    
     db.add(nova_empresa)
     db.commit()
     db.refresh(nova_empresa)
-    
     return nova_empresa
 
-
 @app.post("/api/empresas/login")
-def login_empresa(login: EmpresaLogin, db: Session = Depends(database.get_db)):
-    """
-    Realiza login e retorna token de sessão
-    """
-    # Buscar empresa pelo email
+def login_empresa(login: services.EmpresaLogin, db: Session = Depends(database.get_db)):
     empresa = db.query(models.Empresa).filter(models.Empresa.email_login == login.email_login).first()
-    
-    if not empresa:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email ou senha incorretos"
-        )
-    
-    # Verificar senha
-    if not auth.verify_password(login.senha, empresa.senha_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email ou senha incorretos"
-        )
-    
-    # Criar token de sessão
+    if not empresa or not auth.verify_password(login.senha, empresa.senha_hash):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Email ou senha incorretos")
     token = auth.create_session_token()
     active_sessions[token] = empresa.id
-    
     return {
         "token": token,
         "empresa": {
@@ -195,208 +130,100 @@ def login_empresa(login: EmpresaLogin, db: Session = Depends(database.get_db)):
         }
     }
 
-
 @app.post("/api/empresas/logout")
 def logout_empresa(token: str):
-    """
-    Realiza logout removendo o token de sessão
-    """
     if token in active_sessions:
         del active_sessions[token]
-    
     return {"message": "Logout realizado com sucesso"}
 
 
-# ========== ROTAS DE CLIENTES ==========
+# ================= IA MODULE ROUTES =================
+# 2. IA Geradora de Resumos
+@app.get("/ia/resumo_cliente/{cliente_id}")
+def ia_resumo_cliente(cliente_id: int):
+    try:
+        # Função utilitária para buscar atendimentos do cliente
+        from database import SessionLocal
+        db = SessionLocal()
+        atendimentos = db.query(models.Atendimento).filter(models.Atendimento.cliente_id == cliente_id).all()
+        # Converter para lista de dicts
+        atendimentos_dict = [
+            {"data": a.data_atendimento.strftime("%Y-%m-%d") if a.data_atendimento else None, "tipo_servico": a.tipo_servico}
+            for a in atendimentos
+        ]
+        resumo = ai_module.gerar_resumo_cliente(atendimentos_dict)
+        return {"resumo": resumo}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"erro": str(e)})
 
-@app.post("/api/clientes", response_model=ClienteResponse, status_code=status.HTTP_201_CREATED)
-def criar_cliente(
-    cliente: ClienteCreate, 
-    token: str,
-    db: Session = Depends(database.get_db)
-):
-    """
-    Cria um novo cliente vinculado à empresa autenticada
-    """
-    empresa = get_current_empresa(token, db)
-    
-    novo_cliente = models.Cliente(
-        empresa_id=empresa.id,
-        nome=cliente.nome,
-        telefone=cliente.telefone
-    )
-    
-    db.add(novo_cliente)
-    db.commit()
-    db.refresh(novo_cliente)
-    
-    return novo_cliente
+# 3. IA Sugestora de Ações
+@app.get("/ia/sugestoes/{empresa_id}")
+def ia_sugestoes(empresa_id: int):
+    try:
+        from database import SessionLocal
+        db = SessionLocal()
+        clientes = db.query(models.Cliente).filter(models.Cliente.empresa_id == empresa_id).all()
+        clientes_list = []
+        for c in clientes:
+            atendimentos = db.query(models.Atendimento).filter(models.Atendimento.cliente_id == c.id).all()
+            atendimentos_dict = [
+                {"data": a.data_atendimento.strftime("%Y-%m-%d") if a.data_atendimento else None, "tipo_servico": a.tipo_servico}
+                for a in atendimentos
+            ]
+            clientes_list.append({
+                "nome": c.nome,
+                "atendimentos": atendimentos_dict,
+                "status_ia_cliente": ai_module.analisar_cliente(atendimentos_dict)
+            })
+        sugestoes = ai_module.sugerir_acoes(clientes_list)
+        return {"sugestoes": sugestoes}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"erro": str(e)})
 
+# 4. IA Insights do Negócio
+@app.get("/ia/insights/{empresa_id}")
+def ia_insights(empresa_id: int):
+    try:
+        from database import SessionLocal
+        db = SessionLocal()
+        clientes = db.query(models.Cliente).filter(models.Cliente.empresa_id == empresa_id).all()
+        atendimentos = db.query(models.Atendimento).filter(models.Atendimento.empresa_id == empresa_id).all()
+        clientes_dict = [
+            {"id": c.id, "nome": c.nome} for c in clientes
+        ]
+        atendimentos_dict = [
+            {"id": a.id, "cliente_id": a.cliente_id, "data": a.data_atendimento.strftime("%Y-%m-%d") if a.data_atendimento else None}
+            for a in atendimentos
+        ]
+        insights = ai_module.gerar_insights_empresa(clientes_dict, atendimentos_dict)
+        return {"insights": insights}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"erro": str(e)})
 
-@app.get("/api/clientes", response_model=List[ClienteResponse])
-def listar_clientes(
-    token: str,
-    db: Session = Depends(database.get_db)
-):
-    """
-    Lista todos os clientes da empresa autenticada
-    """
-    empresa = get_current_empresa(token, db)
-    
-    clientes = db.query(models.Cliente).filter(
-        models.Cliente.empresa_id == empresa.id
-    ).order_by(models.Cliente.data_primeiro_contato.desc()).all()
-    
-    return clientes
+# 5. Assistente IA Interno
+class PerguntaIA(BaseModel):
+    pergunta: str
+    empresa_id: int
 
-
-@app.get("/api/clientes/{cliente_id}", response_model=ClienteResponse)
-def obter_cliente(
-    cliente_id: int,
-    token: str,
-    db: Session = Depends(database.get_db)
-):
-    """
-    Obtém detalhes de um cliente específico
-    """
-    empresa = get_current_empresa(token, db)
-    
-    cliente = db.query(models.Cliente).filter(
-        models.Cliente.id == cliente_id,
-        models.Cliente.empresa_id == empresa.id
-    ).first()
-    
-    if not cliente:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Cliente não encontrado"
-        )
-    
-    return cliente
-
-
-# ========== ROTAS DE ATENDIMENTOS ==========
-
-@app.post("/api/atendimentos", response_model=AtendimentoResponse, status_code=status.HTTP_201_CREATED)
-def criar_atendimento(
-    atendimento: AtendimentoCreate,
-    token: str,
-    db: Session = Depends(database.get_db)
-):
-    """
-    Registra um novo atendimento
-    """
-    empresa = get_current_empresa(token, db)
-    
-    # Verificar se o cliente pertence à empresa
-    cliente = db.query(models.Cliente).filter(
-        models.Cliente.id == atendimento.cliente_id,
-        models.Cliente.empresa_id == empresa.id
-    ).first()
-    
-    if not cliente:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Cliente não encontrado"
-        )
-    
-    novo_atendimento = models.Atendimento(
-        empresa_id=empresa.id,
-        cliente_id=atendimento.cliente_id,
-        tipo=atendimento.tipo,
-        descricao=atendimento.descricao,
-        veiculo=atendimento.veiculo
-    )
-    
-    db.add(novo_atendimento)
-    db.commit()
-    db.refresh(novo_atendimento)
-    
-    return novo_atendimento
+@app.post("/ia/perguntar")
+def ia_perguntar(body: PerguntaIA):
+    try:
+        from database import SessionLocal
+        db = SessionLocal()
+        # Gerar contexto textual dos clientes e atendimentos da empresa
+        clientes = db.query(models.Cliente).filter(models.Cliente.empresa_id == body.empresa_id).all()
+        atendimentos = db.query(models.Atendimento).filter(models.Atendimento.empresa_id == body.empresa_id).all()
+        contexto = f"Clientes: {[c.nome for c in clientes]}\nAtendimentos: {len(atendimentos)}"
+        resposta = ai_module.responder_pergunta(body.pergunta, contexto)
+        return {"resposta": resposta}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"erro": str(e)})
+# ====================================================
 
 
-@app.get("/api/atendimentos", response_model=List[AtendimentoDetailResponse])
-def listar_atendimentos(
-    token: str,
-    db: Session = Depends(database.get_db)
-):
-    """
-    Lista todos os atendimentos da empresa com detalhes do cliente
-    """
-    empresa = get_current_empresa(token, db)
-    
-    atendimentos = db.query(
-        models.Atendimento,
-        models.Cliente.nome.label("cliente_nome"),
-        models.Cliente.telefone.label("cliente_telefone")
-    ).join(
-        models.Cliente, models.Atendimento.cliente_id == models.Cliente.id
-    ).filter(
-        models.Atendimento.empresa_id == empresa.id
-    ).order_by(models.Atendimento.data.desc()).all()
-    
-    # Formatar resposta
-    resultado = []
-    for atendimento, cliente_nome, cliente_telefone in atendimentos:
-        resultado.append({
-            "id": atendimento.id,
-            "empresa_id": atendimento.empresa_id,
-            "cliente_id": atendimento.cliente_id,
-            "tipo": atendimento.tipo,
-            "descricao": atendimento.descricao,
-            "veiculo": atendimento.veiculo,
-            "data": atendimento.data,
-            "cliente_nome": cliente_nome,
-            "cliente_telefone": cliente_telefone
-        })
-    
-    return resultado
 
+# ========== ROTA DE DASHBOARD ========== 
 
-@app.get("/api/atendimentos/{atendimento_id}", response_model=AtendimentoDetailResponse)
-def obter_atendimento(
-    atendimento_id: int,
-    token: str,
-    db: Session = Depends(database.get_db)
-):
-    """
-    Obtém detalhes de um atendimento específico
-    """
-    empresa = get_current_empresa(token, db)
-    
-    resultado = db.query(
-        models.Atendimento,
-        models.Cliente.nome.label("cliente_nome"),
-        models.Cliente.telefone.label("cliente_telefone")
-    ).join(
-        models.Cliente, models.Atendimento.cliente_id == models.Cliente.id
-    ).filter(
-        models.Atendimento.id == atendimento_id,
-        models.Atendimento.empresa_id == empresa.id
-    ).first()
-    
-    if not resultado:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Atendimento não encontrado"
-        )
-    
-    atendimento, cliente_nome, cliente_telefone = resultado
-    
-    return {
-        "id": atendimento.id,
-        "empresa_id": atendimento.empresa_id,
-        "cliente_id": atendimento.cliente_id,
-        "tipo": atendimento.tipo,
-        "descricao": atendimento.descricao,
-        "veiculo": atendimento.veiculo,
-        "data": atendimento.data,
-        "cliente_nome": cliente_nome,
-        "cliente_telefone": cliente_telefone
-    }
-
-
-# ========== ROTA DE DASHBOARD ==========
 
 @app.get("/api/dashboard")
 def obter_dashboard(
@@ -407,15 +234,15 @@ def obter_dashboard(
     Retorna estatísticas do dashboard
     """
     empresa = get_current_empresa(token, db)
-    
+
     total_clientes = db.query(models.Cliente).filter(
         models.Cliente.empresa_id == empresa.id
     ).count()
-    
+
     total_atendimentos = db.query(models.Atendimento).filter(
         models.Atendimento.empresa_id == empresa.id
     ).count()
-    
+
     # Últimos 5 atendimentos
     ultimos_atendimentos = db.query(
         models.Atendimento,
@@ -424,17 +251,66 @@ def obter_dashboard(
         models.Cliente, models.Atendimento.cliente_id == models.Cliente.id
     ).filter(
         models.Atendimento.empresa_id == empresa.id
-    ).order_by(models.Atendimento.data.desc()).limit(5).all()
-    
+    ).order_by(models.Atendimento.data_atendimento.desc()).limit(5).all()
+
     atendimentos_recentes = []
     for atendimento, cliente_nome in ultimos_atendimentos:
         atendimentos_recentes.append({
             "id": atendimento.id,
             "cliente_nome": cliente_nome,
-            "tipo": atendimento.tipo,
-            "data": atendimento.data.strftime("%d/%m/%Y %H:%M")
+            "tipo_servico": atendimento.tipo_servico,
+            "data": atendimento.data_atendimento.strftime("%d/%m/%Y %H:%M") if atendimento.data_atendimento else None
         })
-    
+
+    # Top 5 clientes mais ativos (com mais atendimentos)
+    from sqlalchemy import func
+    top_clientes_query = (
+        db.query(
+            models.Cliente.id,
+            models.Cliente.nome,
+            func.count(models.Atendimento.id).label("total_atendimentos")
+        )
+        .join(models.Atendimento, models.Cliente.id == models.Atendimento.cliente_id)
+        .filter(models.Cliente.empresa_id == empresa.id)
+        .group_by(models.Cliente.id, models.Cliente.nome)
+        .order_by(func.count(models.Atendimento.id).desc())
+        .limit(5)
+        .all()
+    )
+    top_clientes = [
+        {
+            "id": c.id,
+            "nome": c.nome,
+            "total_atendimentos": c.total_atendimentos
+        }
+        for c in top_clientes_query
+    ]
+
+    # Calcular tempo médio de retorno (dias entre atendimentos do mesmo cliente)
+    from sqlalchemy import asc
+    intervalos = []
+    clientes_ids = db.query(models.Cliente.id).filter(models.Cliente.empresa_id == empresa.id).all()
+    for (cid,) in clientes_ids:
+        atendimentos = db.query(models.Atendimento).filter(
+            models.Atendimento.cliente_id == cid
+        ).order_by(asc(models.Atendimento.data_atendimento)).all()
+        datas = [a.data_atendimento for a in atendimentos if a.data_atendimento]
+        if len(datas) > 1:
+            for i in range(1, len(datas)):
+                diff = (datas[i] - datas[i-1]).days
+                if diff > 0:
+                    intervalos.append(diff)
+
+    tempo_medio_retorno = round(sum(intervalos)/len(intervalos), 1) if intervalos else None
+
+    # Clientes novos do mês
+    hoje = datetime.today()
+    inicio_mes = hoje.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    clientes_novos_mes = db.query(models.Cliente).filter(
+        models.Cliente.empresa_id == empresa.id,
+        models.Cliente.data_primeiro_contato >= inicio_mes
+    ).count()
+
     return {
         "empresa": {
             "nome": empresa.nome_empresa,
@@ -442,9 +318,12 @@ def obter_dashboard(
         },
         "estatisticas": {
             "total_clientes": total_clientes,
-            "total_atendimentos": total_atendimentos
+            "total_atendimentos": total_atendimentos,
+            "tempo_medio_retorno": tempo_medio_retorno,
+            "clientes_novos_mes": clientes_novos_mes
         },
-        "atendimentos_recentes": atendimentos_recentes
+        "atendimentos_recentes": atendimentos_recentes,
+        "top_clientes": top_clientes
     }
 
 

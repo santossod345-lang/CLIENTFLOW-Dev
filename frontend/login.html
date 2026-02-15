@@ -13,6 +13,13 @@
                 <h1>ClientFlow</h1>
                 <p>Sistema de Gestão Multi-Empresas</p>
             </div>
+            <!-- Bloco de Status do Sistema -->
+            <div id="status-sistema" class="status-sistema" style="margin-bottom:18px; border:1px solid #ccc; border-radius:8px; padding:12px; background:#f9f9f9;">
+                <h3 style="margin-top:0;">Status do Sistema</h3>
+                <div id="status-sistema-msg">
+                    <span>Verificando conexão...</span>
+                </div>
+            </div>
             
             <div class="tabs">
                 <button class="tab-button active" onclick="showTab('login')">Login</button>
@@ -82,6 +89,21 @@
     <script src="script.js"></script>
     <script>
         // Funções específicas da página de login
+
+        // Diagnóstico visual de conexão com backend
+        const STATUS_API_URL = "http://localhost:8000";
+        async function checarStatusSistema() {
+            const statusDiv = document.getElementById('status-sistema-msg');
+            try {
+                const resp = await fetch(STATUS_API_URL);
+                if (!resp.ok) throw new Error('Status HTTP: ' + resp.status);
+                const data = await resp.json();
+                statusDiv.innerHTML = `<span style='color:green;font-weight:bold;'>Servidor conectado</span><br>API online<br><span style='font-size:13px;color:#333;'>${data.message || JSON.stringify(data)}</span>`;
+            } catch (e) {
+                statusDiv.innerHTML = `<span style='color:red;font-weight:bold;'>Erro ao conectar com o servidor</span><br><span style='font-size:13px;color:#a00;'>${e.message || e}</span>`;
+            }
+        }
+        window.addEventListener('DOMContentLoaded', checarStatusSistema);
         
         function showTab(tabName) {
             // Esconder todas as tabs
