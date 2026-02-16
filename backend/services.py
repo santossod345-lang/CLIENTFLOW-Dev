@@ -9,7 +9,7 @@ def classificar_cliente(cliente: models.Cliente, db: Session):
     """
     Atualiza status_cliente, nivel_atividade, score_atividade e importante
     """
-    atendimentos = db.query(models.Atendimento).filter(models.Atendimento.cliente_id == cliente.id).all()
+    atendimentos = db.query(models.Atendimento).filter(models.Atendimento.cliente_id == cliente.id, models.Atendimento.empresa_id == cliente.empresa_id).all()
     total = len(atendimentos)
     if total == 0:
         cliente.status_cliente = "novo"

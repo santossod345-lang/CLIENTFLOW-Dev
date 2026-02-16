@@ -24,6 +24,20 @@ class EmpresaLogin(BaseModel):
     }
 
 
+class RefreshRequest(BaseModel):
+    refresh_token: str
+    model_config = {"from_attributes": True}
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+    class Config:
+        orm_mode = True
+
+
 class EmpresaCreate(BaseModel):
     nome_empresa: str
     nicho: str
