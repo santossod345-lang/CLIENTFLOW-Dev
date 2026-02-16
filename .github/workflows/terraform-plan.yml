@@ -1,0 +1,80 @@
+name: Terraform Plan
+
+on:
+  pull_request:
+  push:
+    branches: [ dev, staging ]
+
+jobs:
+  terraform-plan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set ENV
+        id: setenv
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "ENV=dev" >> $GITHUB_ENV
+          elif [ "${{ github.ref }}" = "refs/heads/staging" ]; then
+            echo "ENV=staging" >> $GITHUB_ENV
+          else
+            echo "ENV=dev" >> $GITHUB_ENV
+          fi
+          echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: '1.4.6'
+
+      - name: Terraform fmt check
+        working-directory: infra/terraform/environments/${{ env.ENV }}
+        run: terraform fmt -check -recursive || true
+
+      - name: Terraform init
+        working-directory: infra/terraform/environments/${{ env.ENV }}
+        run: terraform init -input=false
+
+      - name: Terraform validate
+        working-directory: infra/terraform/environments/${{ env.ENV }}
+        run: terraform validate || true
+
+      - name: Terraform plan
+        working-directory: infra/terraform/environments/${{ env.ENV }}
+        run: |
+          if [ -f terraform.tfvars ]; then
+            terraform plan -input=false -var-file=terraform.tfvars -out=tfplan
+          else
+            terraform plan -input=false -out=tfplan
+          fi
+
+      - name: Prepare plan metadata
+        run: |
+          DIR=infra/terraform/environments/${{ env.ENV }}
+          SHORT_SHA=${{ env.SHORT_SHA }}
+          BRANCH=${GITHUB_REF##*/}
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          mkdir -p "$DIR"
+          echo "{" > "$DIR/tfplan.metadata.json"
+          echo "  \"full_sha\": \"${GITHUB_SHA}\"," >> "$DIR/tfplan.metadata.json"
+          echo "  \"short_sha\": \"${SHORT_SHA}\"," >> "$DIR/tfplan.metadata.json"
+          echo "  \"branch\": \"${BRANCH}\"," >> "$DIR/tfplan.metadata.json"
+          echo "  \"timestamp\": \"${TIMESTAMP}\"," >> "$DIR/tfplan.metadata.json"
+          echo "  \"env\": \"$ENV\"" >> "$DIR/tfplan.metadata.json"
+          echo "}" >> "$DIR/tfplan.metadata.json"
+
+      - name: Upload Terraform plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ env.ENV }}-${{ env.SHORT_SHA }}
+          path: infra/terraform/environments/${{ env.ENV }}/tfplan
+          retention-days: 14

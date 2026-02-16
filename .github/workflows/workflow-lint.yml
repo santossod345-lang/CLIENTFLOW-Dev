@@ -1,0 +1,54 @@
+name: Lint Workflows
+
+on:
+  push:
+    paths:
+      - .github/workflows/**
+  pull_request:
+    paths:
+      - .github/workflows/**
+
+jobs:
+  yamllint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install yamllint
+        run: |
+          python -m pip install --upgrade pip
+          pip install yamllint
+
+      - name: Run yamllint on workflows
+        run: |
+          yamllint -f colored -c <(cat <<'YAML'
+extends: default
+rules:
+  line-length: {max: 200}
+YAML
+          ) .github/workflows/*.yml || true
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck jq
+
+      - name: Shellcheck all workflow shell blocks
+        run: |
+          python - <<'PY'
+import re,sys,glob,subprocess
+files=glob.glob('.github/workflows/*.yml')
+for f in files:
+    s=open(f).read()
+    blocks=re.findall(r"run: \|\n((?:\s+.+\n)+)",s)
+    for i,b in enumerate(blocks):
+        fname=f+'__runblock'+str(i)+'.sh'
+        open(fname,'w').write('\n'.join([line[2:] if line.startswith('  ') else line for line in b.splitlines()]))
+        print('shellcheck',fname)
+        subprocess.run(['shellcheck',fname])
+PY

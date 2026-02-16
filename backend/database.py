@@ -1,31 +1,43 @@
 import os
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-"""
-Configuração do banco de dados SQLite com SQLAlchemy
-"""
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, scoped_session
 
-# URL do banco de dados SQLite
-SQLALCHEMY_DATABASE_URL = "sqlite:///./clientflow.db"
+# Configuração via variáveis de ambiente
+POSTGRES_USER = os.getenv("POSTGRES_USER", "clientflow")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "clientflow")
+POSTGRES_DB = os.getenv("POSTGRES_DB", "clientflow")
+POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
+POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
 
-# Criar engine do SQLAlchemy
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, 
-    connect_args={"check_same_thread": False}  # Necessário para SQLite
+SQLALCHEMY_DATABASE_URL = (
+    f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 )
 
-# Criar SessionLocal para gerenciar sessões de banco de dados
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Engine PostgreSQL
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    pool_pre_ping=True,
+    pool_size=10,
+    max_overflow=20,
+)
+
+# Session factory (scoped para threads)
+SessionLocal = scoped_session(sessionmaker(autocommit=False, autoflush=False, bind=engine))
 
 # Base para os modelos
 Base = declarative_base()
 
+# Função para criar schema por empresa (multi-tenant)
+def create_tenant_schema(schema_name: str):
+    with engine.connect() as conn:
+        conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema_name}"))
+
 # Dependência para obter sessão do banco de dados
-def get_db():
+def get_db(schema: str = None):
     db = SessionLocal()
+    if schema:
+        db.execute(text(f"SET search_path TO {schema}, public"))
     try:
         yield db
     finally:

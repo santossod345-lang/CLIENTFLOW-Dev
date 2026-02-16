@@ -91,14 +91,13 @@
         // Funções específicas da página de login
 
         // Diagnóstico visual de conexão com backend
-        const STATUS_API_URL = "http://localhost:8000";
+        const STATUS_API_URL = "https://clientflow-production-99f1.up.railway.app";
         async function checarStatusSistema() {
             const statusDiv = document.getElementById('status-sistema-msg');
             try {
                 const resp = await fetch(STATUS_API_URL);
                 if (!resp.ok) throw new Error('Status HTTP: ' + resp.status);
-                const data = await resp.json();
-                statusDiv.innerHTML = `<span style='color:green;font-weight:bold;'>Servidor conectado</span><br>API online<br><span style='font-size:13px;color:#333;'>${data.message || JSON.stringify(data)}</span>`;
+                statusDiv.innerHTML = `<span style='color:green;font-weight:bold;'>Servidor conectado</span><br>API online`;
             } catch (e) {
                 statusDiv.innerHTML = `<span style='color:red;font-weight:bold;'>Erro ao conectar com o servidor</span><br><span style='font-size:13px;color:#a00;'>${e.message || e}</span>`;
             }
@@ -145,17 +144,15 @@
                         senha: senha
                     })
                 });
-                
                 const data = await response.json();
-                
                 if (response.ok) {
-                    // Salvar token e dados da empresa
+                    // Salvar tokens e dados da empresa
                     localStorage.setItem('token', data.token);
+                    if (data.access_token) {
+                        localStorage.setItem('access_token', data.access_token);
+                    }
                     localStorage.setItem('empresa', JSON.stringify(data.empresa));
-                    
                     showMessage('Login realizado com sucesso!', 'success');
-                    
-                    // Redirecionar para dashboard
                     setTimeout(() => {
                         window.location.href = 'dashboard.html';
                     }, 1000);

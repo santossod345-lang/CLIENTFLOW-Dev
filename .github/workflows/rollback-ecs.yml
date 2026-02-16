@@ -1,0 +1,36 @@
+name: Rollback ECS Service
+
+on:
+  workflow_dispatch:
+    inputs:
+      task_definition_arn:
+        description: 'Task definition ARN to rollback to (eg: arn:aws:ecs:...)'
+        required: true
+      cluster:
+        description: 'ECS Cluster name (optional, defaults to secret ECS_CLUSTER)'
+        required: false
+      service:
+        description: 'ECS Service name (optional, defaults to secret ECS_SERVICE)'
+        required: false
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Rollback ECS service to given task definition
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          TASK_DEF_ARN: ${{ github.event.inputs.task_definition_arn }}
+          INPUT_CLUSTER: ${{ github.event.inputs.cluster }}
+          INPUT_SERVICE: ${{ github.event.inputs.service }}
+          SECRET_ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
+          SECRET_ECS_SERVICE: ${{ secrets.ECS_SERVICE }}
+        run: |
+          ECS_CLUSTER="${INPUT_CLUSTER:-$SECRET_ECS_CLUSTER}"
+          ECS_SERVICE="${INPUT_SERVICE:-$SECRET_ECS_SERVICE}"
+          echo "Rolling back ${ECS_CLUSTER}/${ECS_SERVICE} to taskDefinition ${TASK_DEF_ARN}"
+          aws ecs update-service --cluster ${ECS_CLUSTER} --service ${ECS_SERVICE} --task-definition ${TASK_DEF_ARN} --force-new-deployment --region ${AWS_REGION}
+          echo "Rollback triggered. Service will deploy the provided task definition."

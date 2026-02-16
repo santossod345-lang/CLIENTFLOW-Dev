@@ -1,0 +1,101 @@
+name: Deploy to AWS ECS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Capture current ECS taskDefinition ARN (for rollback)
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
+          ECS_SERVICE: ${{ secrets.ECS_SERVICE }}
+        run: |
+          echo "Describing service ${ECS_CLUSTER}/${ECS_SERVICE}"
+          aws ecs describe-services --cluster ${ECS_CLUSTER} --services ${ECS_SERVICE} --region ${AWS_REGION} > ecs/current_service.json || true
+          cat ecs/current_service.json
+
+      - name: Build and push Docker image to ECR
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+        run: |
+          IMAGE_TAG=${GITHUB_SHA}
+          REPO_URI="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}"
+          docker build -t $REPO_URI:$IMAGE_TAG .
+          docker push $REPO_URI:$IMAGE_TAG
+
+      - name: Run Alembic migrations (if DB secrets provided)
+        if: ${{ secrets.POSTGRES_HOST != '' && secrets.POSTGRES_DB != '' && secrets.POSTGRES_USER != '' && secrets.POSTGRES_PASSWORD != '' }}
+        env:
+          POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+          POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          PGPASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt alembic
+          export SQLALCHEMY_DATABASE_URL="postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
+          echo "Running alembic upgrade head against $POSTGRES_HOST"
+          alembic upgrade head
+
+      - name: Create RDS snapshot (optional, if RDS_INSTANCE_ID provided)
+        if: ${{ secrets.RDS_INSTANCE_ID != '' }}
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          RDS_INSTANCE_ID: ${{ secrets.RDS_INSTANCE_ID }}
+        run: |
+          TIMESTAMP=$(date +"%Y%m%d%H%M%S")
+          SNAP_NAME="clientflow-snapshot-${TIMESTAMP}-${{ github.run_id }}"
+          echo "Creating RDS snapshot $SNAP_NAME for instance $RDS_INSTANCE_ID"
+          aws rds create-db-snapshot --db-snapshot-identifier $SNAP_NAME --db-instance-identifier $RDS_INSTANCE_ID --region $AWS_REGION
+          echo "Waiting for snapshot to become available (this may take minutes)"
+          aws rds wait db-snapshot-available --db-snapshot-identifier $SNAP_NAME --region $AWS_REGION
+          echo "Snapshot $SNAP_NAME is available"
+
+      - name: Register new Task Definition and update ECS Service
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          TASK_EXEC_ROLE_ARN: ${{ secrets.TASK_EXEC_ROLE_ARN }}
+          TASK_ROLE_ARN: ${{ secrets.TASK_ROLE_ARN }}
+          CONTAINER_NAME: ${{ secrets.CONTAINER_NAME }}
+          CONTAINER_PORT: ${{ secrets.CONTAINER_PORT }}
+          ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
+          ECS_SERVICE: ${{ secrets.ECS_SERVICE }}
+        run: |
+          IMAGE_TAG=${{ github.sha }}
+          REPO_URI="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}"
+          mkdir -p ecs
+          sed -e "s|__IMAGE_URI__|${REPO_URI}:${IMAGE_TAG}|g" \
+              -e "s|__EXEC_ROLE__|${TASK_EXEC_ROLE_ARN}|g" \
+              -e "s|__TASK_ROLE__|${TASK_ROLE_ARN}|g" \
+              -e "s|__CONTAINER_NAME__|${CONTAINER_NAME}|g" \
+              -e "s|__CONTAINER_PORT__|${CONTAINER_PORT}|g" \
+              -e "s|__AWS_REGION__|${AWS_REGION}|g" \
+              ecs/taskdef.template.json > ecs/taskdef.json
+          aws ecs register-task-definition --cli-input-json file://ecs/taskdef.json --region $AWS_REGION
+          aws ecs update-service --cluster ${ECS_CLUSTER} --service ${ECS_SERVICE} --force-new-deployment --region ${AWS_REGION}
+
+      - name: Upload previous task definition artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: previous-ecs-taskdef-${{ github.run_id }}
+          path: ecs/current_service.json

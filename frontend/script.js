@@ -1,3 +1,35 @@
+// ========== CONFIGURAÇÃO GLOBAL DA API ========== 
+let API_URL = "https://clientflow-production-99f1.up.railway.app";
+// Tenta ler API_URL de variável de ambiente (Next.js, Vite, etc)
+if (typeof process !== 'undefined' && process.env && process.env.API_URL) {
+    API_URL = process.env.API_URL;
+} else if (window && window.API_URL) {
+    API_URL = window.API_URL;
+}
+
+// Função utilitária para requisições autenticadas (JWT ou token antigo)
+async function fetchAuth(url, options = {}) {
+    const token = localStorage.getItem('token');
+    const accessToken = localStorage.getItem('access_token');
+    options = options || {};
+    options.headers = options.headers || {};
+    if (accessToken) {
+        options.headers['Authorization'] = `Bearer ${accessToken}`;
+    } else if (token) {
+        // Compatibilidade antiga: token na query
+        const sep = url.includes('?') ? '&' : '?';
+        url = `${url}${sep}token=${token}`;
+    }
+    const response = await fetch(url, options);
+    if (response.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('empresa');
+        window.location.href = 'login.html';
+        return null;
+    }
+    return response;
+}
 // ========== CONFIRMAÇÃO DE LOGOUT ==========
 function handleLogout() {
     if (confirm('Tem certeza que deseja sair?')) {
@@ -15,7 +47,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!telefone) return;
             const token = localStorage.getItem('token');
             try {
-                const resp = await fetch(`${API_URL}/clientes?token=${token}`);
+                // CORRIGIDO: fetch para clientes
+                const resp = await fetch(`${API_URL}/api/clientes?token=${token}`);
                 if (!resp.ok) return;
                 const clientes = await resp.json();
                 const cliente = clientes.find(c => (c.telefone||'').replace(/\D/g, '') === telefone);
@@ -28,7 +61,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 // ========== INTELIGÊNCIA ARTIFICIAL (IA) ========== 
-const API_IA = "http://localhost:8000/ia";
+// CORRIGIDO: API_IA para /api/ia
+const API_IA = `${API_URL}/api/ia`;
 
 async function analisarClienteIA() {
     const clienteId = prompt("Digite o ID do cliente para analisar:");
@@ -110,7 +144,7 @@ function showIAResposta(msg) {
 function checarNotificacoesRetorno() {
     const empresa = JSON.parse(localStorage.getItem('empresa'));
     if (!empresa) return;
-    fetch(`/clientes_para_retorno/${empresa.id}`)
+    fetch(`${API_URL}/api/clientes_para_retorno/${empresa.id}`)
         .then(resp => resp.json())
         .then(clientes => {
             if (clientes && clientes.length) {
@@ -127,7 +161,7 @@ window.addEventListener('DOMContentLoaded', checarNotificacoesRetorno);
 // ========== LOGS DE AÇÕES (AUDITORIA/ADMIN) ==========
 function carregarLogsAcoes() {
     showLoading();
-    fetch('/logs_acoes')
+    fetch(`${API_URL}/api/logs_acoes`)
         .then(resp => resp.json())
         .then(logs => {
             const container = document.getElementById('logs-acoes-list');
@@ -148,9 +182,8 @@ function carregarLogsAcoes() {
 // ========== EXPORTAÇÃO DE DADOS (CSV) ==========
 function exportarCSV(tipo) {
     showLoading();
-    const token = localStorage.getItem('token');
-    let url = tipo==='clientes' ? `${API_URL}/clientes?token=${token}` : `${API_URL}/atendimentos?token=${token}`;
-    fetch(url)
+    let url = tipo==='clientes' ? `${API_URL}/api/clientes` : `${API_URL}/api/atendimentos`;
+    fetchAuth(url)
         .then(resp => resp.json())
         .then(dados => {
             if (!Array.isArray(dados) || !dados.length) {
@@ -203,7 +236,7 @@ async function loadClientesRetorno() {
     const container = document.getElementById('clientes-retorno');
     container.innerHTML = '<p>Carregando...</p>';
     try {
-        const response = await fetchAuth(`http://localhost:8000/clientes_retorno/${empresa.id}`);
+        const response = await fetchAuth(`${API_URL}/api/clientes_retorno/${empresa.id}`);
         const clientes = await response.json();
         if (response.ok) {
             if (clientes.length === 0) {
@@ -244,7 +277,7 @@ const handleBuscaGlobal = debounce(async function() {
     const q = document.getElementById('busca-global').value.trim();
     const container = document.getElementById('resultados-busca');
     try {
-        const response = await fetch(`${API_URL}/clientes?token=${token}`);
+        const response = await fetch(`${API_URL}/api/clientes?token=${token}`);
         let clientes = await response.json();
         if (response.ok) {
             clientesCache = clientes;
@@ -283,7 +316,7 @@ async function mostrarHistoricoCliente(clienteId, nomeCliente) {
     totalDiv.textContent = '';
     try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`http://localhost:8000/api/clientes/${clienteId}?token=${token}`);
+        const response = await fetch(`${API_URL}/api/clientes/${clienteId}?token=${token}`);
         const perfil = await response.json();
         if (response.ok) {
             totalDiv.textContent = `Total já gasto: R$ ${perfil.total_gasto.toFixed(2)}`;
@@ -320,7 +353,7 @@ async function loadEstatisticasDashboard() {
     const container = document.getElementById('estatisticas-dashboard');
     container.innerHTML = '<p>Carregando...</p>';
     try {
-        const response = await fetchAuth(`http://localhost:8000/estatisticas/${empresa.id}`);
+        const response = await fetchAuth(`${API_URL}/api/estatisticas/${empresa.id}`);
         const stats = await response.json();
         if (response.ok) {
             let html = `
@@ -354,7 +387,7 @@ async function loadAtendimentos() {
     showLoading();
     tbody.innerHTML = '<tr><td colspan="7">Carregando...</td></tr>';
     try {
-        let url = `${API_URL}/atendimentos?token=${token}`;
+        let url = `${API_URL}/api/atendimentos?token=${token}`;
         const periodo = document.getElementById('filtro-periodo')?.value;
         if (periodo) url += `&periodo=${periodo}`;
         const response = await fetch(url);
@@ -392,7 +425,7 @@ function editarAtendimento(id) {
 function excluirAtendimento(id) {
     if (!confirm('Tem certeza que deseja excluir este atendimento?')) return;
     const token = localStorage.getItem('token');
-    fetch(`${API_URL}/atendimentos/${id}?token=${token}`, { method: 'DELETE' })
+    fetch(`${API_URL}/api/atendimentos/${id}?token=${token}`, { method: 'DELETE' })
         .then(resp => {
             if (resp.ok) {
                 showToast('Atendimento excluído com sucesso!','success');
@@ -418,7 +451,7 @@ function abrirModalEdicao(tipo, id) {
         document.getElementById('modal-edicao-titulo').textContent = tipo === 'cliente' ? 'Editar Cliente' : 'Editar Atendimento';
         modal.style.display = 'flex';
         const token = localStorage.getItem('token');
-        let url = tipo === 'cliente' ? `${API_URL}/clientes/${id}?token=${token}` : `${API_URL}/atendimentos/${id}?token=${token}`;
+        let url = tipo === 'cliente' ? `${API_URL}/api/clientes/${id}?token=${token}` : `${API_URL}/api/atendimentos/${id}?token=${token}`;
         fetch(url)
             .then(resp => resp.json())
             .then(data => {
@@ -454,7 +487,7 @@ function salvarEdicao(e) {
             dados[el.name] = el.type === 'number' ? Number(el.value) : el.value;
         }
         const token = localStorage.getItem('token');
-        let url = edicaoTipo === 'cliente' ? `${API_URL}/clientes/${edicaoId}?token=${token}` : `${API_URL}/atendimentos/${edicaoId}?token=${token}`;
+        let url = edicaoTipo === 'cliente' ? `${API_URL}/api/clientes/${edicaoId}?token=${token}` : `${API_URL}/api/atendimentos/${edicaoId}?token=${token}`;
         showLoading();
         fetch(url, {
             method: 'PUT',
@@ -478,7 +511,7 @@ function salvarEdicao(e) {
 function excluirCliente(id) {
     if (!confirm('Tem certeza que deseja excluir este cliente? Esta ação não poderá ser desfeita.')) return;
     const token = localStorage.getItem('token');
-    fetch(`${API_URL}/clientes/${id}?token=${token}`, { method: 'DELETE' })
+    fetch(`${API_URL}/api/clientes/${id}?token=${token}`, { method: 'DELETE' })
         .then(resp => {
             if (resp.ok) {
                 showToast('Cliente excluído com sucesso!','success');
@@ -553,7 +586,7 @@ async function loadClientesRecentes() {
     const container = document.getElementById('clientes-recentes');
     container.innerHTML = '<p>Carregando...</p>';
     try {
-        const response = await fetch(`${API_URL}/clientes?token=${token}`);
+        const response = await fetch(`${API_URL}/api/clientes?token=${token}`);
         const clientes = await response.json();
         if (response.ok) {
             if (clientes.length === 0) {
@@ -583,7 +616,7 @@ async function loadAtendimentosRecentes() {
     const container = document.getElementById('atendimentos-recentes');
     container.innerHTML = '<p>Carregando...</p>';
     try {
-        const response = await fetch(`${API_URL}/atendimentos?token=${token}`);
+        const response = await fetch(`${API_URL}/api/atendimentos?token=${token}`);
         const atendimentos = await response.json();
         if (response.ok) {
             if (atendimentos.length === 0) {
@@ -634,7 +667,7 @@ const oldLoadDashboard = window.loadDashboard;
 window.loadDashboard = async function() {
     const token = localStorage.getItem('token');
     try {
-        const response = await fetch(`${API_URL}/dashboard?token=${token}`);
+        const response = await fetch(`${API_URL}/api/dashboard?token=${token}`);
         const data = await response.json();
         if (response.ok) {
             document.getElementById('total-clientes').textContent = data.estatisticas.total_clientes;
@@ -689,7 +722,7 @@ async function loadGraficosDashboard() {
     const empresa = JSON.parse(localStorage.getItem('empresa'));
     if (!empresa) return;
     // Atendimentos por mês
-    const resAt = await fetch(`/grafico/atendimentos/${empresa.id}`);
+    const resAt = await fetch(`${API_URL}/api/estatisticas/${empresa.id}`);
     const dadosAt = await resAt.json();
     if (window.graficoAtendimentos) window.graficoAtendimentos.destroy();
     const ctxAt = document.getElementById('grafico-atendimentos').getContext('2d');
@@ -702,7 +735,7 @@ async function loadGraficosDashboard() {
         options: { plugins: { legend: { display: false } } }
     });
     // Clientes por mês
-    const resCl = await fetch(`/grafico/clientes/${empresa.id}`);
+    const resCl = await fetch(`${API_URL}/api/estatisticas/${empresa.id}`);
     const dadosCl = await resCl.json();
     if (window.graficoClientes) window.graficoClientes.destroy();
     const ctxCl = document.getElementById('grafico-clientes').getContext('2d');
@@ -729,7 +762,7 @@ async function loadClientesInativos() {
     const container = document.getElementById('clientes-inativos');
     container.innerHTML = '<p>Carregando...</p>';
     try {
-        const response = await fetch(`/clientes_inativos/${empresa.id}`);
+        const response = await fetch(`${API_URL}/api/clientes_inativos/${empresa.id}`);
         const clientes = await response.json();
         if (clientes.length === 0) {
             container.innerHTML = '<p>Nenhum cliente inativo.</p>';
@@ -752,7 +785,7 @@ async function loadClientesParaRetorno() {
     const container = document.getElementById('clientes-para-retorno');
     container.innerHTML = '<p>Carregando...</p>';
     try {
-        const response = await fetch(`/clientes_para_retorno/${empresa.id}`);
+        const response = await fetch(`${API_URL}/api/clientes_para_retorno/${empresa.id}`);
         const clientes = await response.json();
         if (clientes.length === 0) {
             container.innerHTML = '<p>Nenhum cliente para retorno.</p>';
@@ -776,7 +809,7 @@ async function loadRankingClientes() {
     const container = document.getElementById('ranking-clientes');
     container.innerHTML = '<p>Carregando...</p>';
     try {
-        const response = await fetch(`/ranking_clientes/${empresa.id}`);
+        const response = await fetch(`${API_URL}/api/ranking_clientes/${empresa.id}`);
         const ranking = await response.json();
         if (ranking.length === 0) {
             container.innerHTML = '<p>Nenhum dado.</p>';
@@ -798,7 +831,7 @@ async function loadServicosComuns() {
     const container = document.getElementById('servicos-comuns');
     container.innerHTML = '<p>Carregando...</p>';
     try {
-        const response = await fetch(`/servicos_comuns/${empresa.id}`);
+        const response = await fetch(`${API_URL}/api/servicos_comuns/${empresa.id}`);
         const servicos = await response.json();
         if (servicos.length === 0) {
             container.innerHTML = '<p>Nenhum dado.</p>';
