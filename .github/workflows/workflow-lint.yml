@@ -22,12 +22,9 @@ jobs:
 
       - name: Run yamllint on workflows
         run: |
-          yamllint -f colored -c <(cat <<'YAML'
-extends: default
-rules:
-  line-length: {max: 200}
-YAML
-          ) .github/workflows/*.yml || true
+          printf "%s\n" "extends: default" "rules:" "  line-length: {max: 200}" > .yamllint_tmp.yml
+          yamllint -f colored -c .yamllint_tmp.yml .github/workflows || true
+          rm -f .yamllint_tmp.yml
 
   shellcheck:
     runs-on: ubuntu-latest

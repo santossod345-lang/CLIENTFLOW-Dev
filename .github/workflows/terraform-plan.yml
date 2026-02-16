@@ -3,7 +3,7 @@ name: Terraform Plan
 on:
   pull_request:
   push:
-    branches: [ dev, staging ]
+    branches: [dev, staging]
 
 jobs:
   terraform-plan:
