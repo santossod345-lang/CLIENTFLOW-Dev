@@ -25,11 +25,14 @@ else:
     )
 
 # Engine PostgreSQL
+# Nota: pool_pre_ping faz health check antes de usar conexões do pool
+# Não falha no import - apenas quando tentar usar a conexão
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
     pool_pre_ping=True,
     pool_size=10,
     max_overflow=20,
+    echo=False,  # Set to True for SQL query logging
 )
 
 # Session factory (scoped para threads)
