@@ -1,0 +1,78 @@
+🚂 RAILWAY CLI - PRÓXIMOS PASSOS
+================================
+
+Detectamos que o Railway CLI precisa de autenticação interativa.
+
+═══════════════════════════════════════════════════════════
+
+⚠️  IMPORTANTE: Você precisa fazer isso MANUALMENTE no PowerShell
+
+═══════════════════════════════════════════════════════════
+
+Copie e cole EXATAMENTE ISTO no PowerShell:
+
+    railway login
+
+Isso vai:
+  1. Abrir seu navegador automaticamente
+  2. Você faz login com GitHub ou Email
+  3. Aprova o acesso do CLI
+  4. Retorna ao terminal com "✓ Authenticated"
+
+
+DEPOIS, execute TAMBÉM no PowerShell:
+
+    railway list
+
+Você vai ver uma tabela com seus projetos.
+Procure por "CLIENTFLOW" ou similar.
+
+
+DEPOIS, execute:
+
+    railway link
+
+Selecione o projeto CLIENTFLOW
+
+
+DEPOIS, execute:
+
+    railway open
+
+Isso abre a URL do projeto no navegador!
+
+
+═══════════════════════════════════════════════════════════
+
+🎯 RESUMO RÁPIDO DOS 4 COMANDOS:
+
+1️⃣  railway login          (Faz login - abre navegador)
+2️⃣  railway list           (Lista projetos - procura CLIENTFLOW)
+3️⃣  railway link           (Conecta ao projeto)
+4️⃣  railway open           (Abre URL no navegador - PRONTO!)
+
+
+═══════════════════════════════════════════════════════════
+
+POR QUÊ NÃO FAZER AUTOMATICAMENTE?
+
+O Railway exige interação do usuário para:
+  • Autenticação via navegador
+  • Seleção de projeto
+  • Confirmação de ações
+
+Isso é por segurança - não queremos fazer login sem você saber!
+
+
+═══════════════════════════════════════════════════════════
+
+AGORA É COM VOCÊ! 💪
+
+Abra o PowerShell e execute estes 4 comandos em sequência:
+
+railroad login
+railway list
+railway link  
+railway open
+
+═══════════════════════════════════════════════════════════

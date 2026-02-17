@@ -1,0 +1,150 @@
+🚂 GUIA PARA CONECTAR AO RAILWAY VIA CLI
+===========================================
+
+✅ Railway CLI foi instalado com sucesso!
+
+Agora siga estes passos:
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PASSO 1: Fazer Login
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Execute no PowerShell:
+
+  railway login
+
+Isso vai:
+  ✓ Abrir seu navegador automaticamente
+  ✓ Você faz login com GitHub ou email
+  ✓ Autoriza o Railway CLI
+  ✓ Volta para o terminal
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PASSO 2: Listar Projetos
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Execute:
+
+  railway list
+
+Isso mostra:
+  • Nome dos seus projetos
+  • Status de cada um
+  • Data de último deploy
+
+Procure por "CLIENTFLOW" na lista
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PASSO 3: Conectar ao Projeto ClientFlow
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Execute:
+
+  railway link
+
+Isso vai:
+  • Mostrar seus projetos
+  • Você seleciona "CLIENTFLOW"
+  • Conecta o CLI ao projeto
+
+Ou diretamente:
+
+  railway link --project CLIENTFLOW
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PASSO 4: Abrir a URL do Projeto
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Execute:
+
+  railway open
+
+Isso vai:
+  ✓ Abrir a URL do projeto no navegador
+  ✓ Mostrar dashboard do Railway
+  ✓ Você verá: Deployments, Logs, Variáveis, etc.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PASSO 5 (OPCIONAL): Ver a URL da API
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Execute:
+
+  railway env | findstr SERVICE_DOMAIN
+
+Isso mostra a URL completa do seu ClientFlow
+
+Exemplo:
+  https://clientflow-prod-xxxx.up.railway.app
+
+Adicione "/docs" para ver a documentação da API:
+  https://clientflow-prod-xxxx.up.railway.app/docs
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PASSO 6 (OPCIONAL): Ver Logs em Tempo Real
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Execute:
+
+  railway logs --follow
+
+Isso mostra:
+  • Eventos da aplicação em tempo real
+  • Erros e avisos
+  • Performance da API
+
+(Pressione Ctrl+C para parar)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PASSO 7 (OPCIONAL): Ver Variáveis de Ambiente
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Execute:
+
+  railway env
+
+Mostra todas as variáveis configuradas no Railway:
+  • DATABASE_URL (PostgreSQL)
+  • JWT_SECRET_KEY
+  • REDIS_URL
+  • etc.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+REFERÊNCIA RÁPIDA DE COMANDOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+railway login              # Fazer login
+railway logout             # Fazer logout
+railway list               # Listar projetos
+railway link               # Conectar a um projeto
+railway open               # Abrir URL no navegador
+railway status             # Ver status do projeto
+railway logs               # Ver logs
+railway logs --follow      # Ver logs em tempo real
+railway env                # Ver variáveis de ambiente
+railway run "comando"      # Executar comando remoto
+railway deploy             # Fazer deploy do main
+railway shell              # Shell remoto (SSH)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PRONTO! 🎉
+
+Agora execute na ordem:
+
+1️⃣  railway login
+2️⃣  railway list       (procure por CLIENTFLOW)
+3️⃣  railway link       (selecione CLIENTFLOW)
+4️⃣  railway open       (abre a URL)
+
+E pronto! Você tem acesso total ao seu Railway!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

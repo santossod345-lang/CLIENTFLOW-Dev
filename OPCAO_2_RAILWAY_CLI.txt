@@ -1,0 +1,222 @@
+╔══════════════════════════════════════════════════════════════════════════╗
+║                                                                          ║
+║              ✅ RAILWAY CLI INSTALADO E PRONTO!                         ║
+║                                                                          ║
+║              Versão: 4.30.3                                              ║
+║              Status: Operacional                                         ║
+║                                                                          ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+
+🚂 OPÇÃO 2: RAILWAY CLI - COMO USAR
+═══════════════════════════════════════════════════════════════════════════
+
+
+📌 VOCÊ PODE ESCOLHER ENTRE:
+
+   A) Executar Automaticamente (Recomendado)
+        ↓
+       execute no PowerShell:
+       
+           .\railway_interactive.ps1
+       
+       Isso abre um menu interativo
+   
+   
+   B) Executar Comandos Manualmente (Passo a Passo)
+        ↓
+       Copie e cole os comandos abaixo
+
+
+═══════════════════════════════════════════════════════════════════════════
+
+🔵 OPÇÃO A: EXECUTAR SCRIPT INTERATIVO
+═══════════════════════════════════════════════════════════════════════════
+
+No PowerShell, execute:
+
+    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+    
+    .\railway_interactive.ps1
+
+Isso abrirá um menu com as seguintes opções:
+    
+    1. Fazer Login no Railway
+    2. Listar Projetos
+    3. Conectar ao ClientFlow
+    4. Abrir URL do Projeto
+    5. Ver Logs em Tempo Real
+    6. Ver Variáveis de Ambiente
+    7. Ver Status do Projeto
+    8. Executar Tudo Automaticamente ← COMECE AQUI
+    0. Sair
+
+
+═══════════════════════════════════════════════════════════════════════════
+
+🔴 OPÇÃO B: EXECUTAR MANUALMENTE (PASSO A PASSO)
+═══════════════════════════════════════════════════════════════════════════
+
+
+PASSO 1️⃣: FAZER LOGIN
+──────────────────────────────────────────────────────────────────────────
+
+railway login
+
+O que acontece:
+  ✓ Abre um navegador automaticamente
+  ✓ Login via GitHub ou Email
+  ✓ Autoriza o Railway CLI
+  ✓ Retorna ao terminal
+
+Resultado esperado: "✓ Authenticated"
+
+
+PASSO 2️⃣: LISTAR SEUS PROJETOS
+──────────────────────────────────────────────────────────────────────────
+
+railway list
+
+Você verá uma tabela com:
+  • Nome do projeto
+  • Último deploy
+  • Status
+
+📌 PROCURE PELO PROJETO "CLIENTFLOW" OU "CLIENTFLOW-PROD"
+
+
+PASSO 3️⃣: CONECTAR AO PROJETO CLIENTFLOW
+──────────────────────────────────────────────────────────────────────────
+
+railway link
+
+Ou especificamente:
+
+railway link --project CLIENTFLOW
+
+Você será perguntado:
+  • Qual projeto deseja conectar?
+
+Selecione o ClientFlow
+
+
+PASSO 4️⃣: ABRIR A URL NO NAVEGADOR
+──────────────────────────────────────────────────────────────────────────
+
+railway open
+
+Isso vai:
+  ✓ Detectar a URL do seu projeto
+  ✓ Abrir no navegador automaticamente
+  ✓ Mostrar o Dashboard do Railway
+
+URL estará no formato:
+  https://clientflow-prod-xxxx.up.railway.app
+
+
+PASSO 5️⃣ (OPCIONAL): VER LOGS EM TEMPO REAL
+──────────────────────────────────────────────────────────────────────────
+
+railway logs --follow
+
+Isso mostra:
+  • Eventos da API em tempo real
+  • Erros e avisos
+  • Performance
+
+Pressione CTRL+C para parar
+
+
+PASSO 6️⃣ (OPCIONAL): VER URL COMPLETA DA API
+──────────────────────────────────────────────────────────────────────────
+
+railway env | Select-String SERVICE_DOMAIN
+
+Você verá algo como:
+
+  SERVICE_DOMAIN=clientflow-prod-xxxx.up.railway.app
+
+Para acessar a documentação Swagger da sua API:
+
+  https://clientflow-prod-xxxx.up.railway.app/docs
+                                              ↑
+                                         Adicione /docs
+
+
+═══════════════════════════════════════════════════════════════════════════
+
+📋 REFERÊNCIA RÁPIDA DE COMANDOS
+═══════════════════════════════════════════════════════════════════════════
+
+railway login                   Fazer login no Railway
+railway logout                  Fazer logout
+railway list                    Listar seus projetos
+railway link                    Conectar a um projeto
+railway unlink                  Desconectar do projeto
+railway open                    Abrir URL no navegador
+railway status                  Ver status do projeto
+railway logs                    Ver logs (últimas 100 linhas)
+railway logs --follow           Ver logs em tempo real
+railway env                     Ver variáveis de ambiente
+railway run "sh -c 'pwd'"      Executar comando remoto
+railway shell                   Abrir SSH para terminal remoto
+
+
+═══════════════════════════════════════════════════════════════════════════
+
+❓ COMUM: QUAL COMANDO EXECUTAR PRIMEIRO?
+
+Recomendação na ordem:
+
+1️⃣  railway login    ← SEMPRE PRIMEIRO
+2️⃣  railway list    ← Procure por CLIENTFLOW
+3️⃣  railway link    ← Selecione o projeto
+4️⃣  railway open    ← Abre a URL
+
+Depois pode usar:
+
+   railway logs --follow    ← Ver logs
+   railway env              ← Ver configurações
+
+
+═══════════════════════════════════════════════════════════════════════════
+
+🎯 ONDE VOCÊ VERÁ A URL?
+
+1. No navegador aberto por: railway open
+2. No output de: railway env | Select-String SERVICE_DOMAIN
+3. No Dashboard do Railway (https://railway.app)
+
+URL típica:
+  https://clientflow-prod-abc123xyz456.up.railway.app
+
+Adicione /docs para ver a API:
+  https://clientflow-prod-abc123xyz456.up.railway.app/docs
+
+
+═══════════════════════════════════════════════════════════════════════════
+
+✅ PRONTO!
+
+Escolha um dos caminhos:
+
+    👉 RECOMENDADO: Execute o script interativo
+       .\railway_interactive.ps1
+    
+    👉 MANUAL: Siga os 6 passos acima
+
+
+═══════════════════════════════════════════════════════════════════════════
+
+Precisando de ajuda?
+
+1. Verifique: https://docs.railway.com/cli
+2. Ver mais info: railway help
+3. Ver documentação de um comando: railway [comando] --help
+
+Exemplo:
+  railway login --help
+  railway open --help
+  railway logs --help
+
+═══════════════════════════════════════════════════════════════════════════
