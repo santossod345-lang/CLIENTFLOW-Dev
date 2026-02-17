@@ -30,8 +30,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Criação das tabelas
-models.Base.metadata.create_all(bind=database.engine)
+# Criação das tabelas (desabilitado em produção - usar Alembic migrations)
+# Em produção, execute: alembic upgrade head
+# models.Base.metadata.create_all(bind=database.engine)
 
 # Registrar routers
 app.include_router(empresa.router)
