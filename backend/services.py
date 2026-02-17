@@ -1,7 +1,7 @@
 """
 Camada de serviços para regras de negócio, inteligência e automações do ClientFlow
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from backend import models
 
@@ -19,7 +19,7 @@ def classificar_cliente(cliente: models.Cliente, db: Session):
         return
     datas = [a.data_atendimento for a in atendimentos if a.data_atendimento]
     datas.sort(reverse=True)
-    meses_sem_retorno = (datetime.utcnow() - datas[0]).days // 30 if datas else 99
+    meses_sem_retorno = (datetime.now(timezone.utc) - datas[0]).days // 30 if datas else 99
     if total >= 5:
         cliente.status_cliente = "frequente"
         cliente.nivel_atividade = "alto"
@@ -44,6 +44,6 @@ def atualizar_status_todos_clientes(empresa_id: int, db: Session):
         classificar_cliente(cliente, db)
     db.commit()
 
-def log_acao(empresa_id: int, usuario: str, acao: str, db: Session):
+def log_acao(empresa_id: int, usuario: str, acao: str, _db: Session = None):
     # Placeholder para logs, pode ser expandido para salvar em tabela/logfile
-    print(f"[LOG] Empresa {empresa_id} | Usuário: {usuario} | {acao} | {datetime.utcnow()}")
+    print(f"[LOG] Empresa {empresa_id} | Usuário: {usuario} | {acao} | {datetime.now(timezone.utc)}")

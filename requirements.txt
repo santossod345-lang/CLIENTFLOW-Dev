@@ -10,7 +10,4 @@ openai
 bcrypt==3.2.2
 python-multipart
 gunicorn
-fastapi
-sqlalchemy
-uvicorn
 redis

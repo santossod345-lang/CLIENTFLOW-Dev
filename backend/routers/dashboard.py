@@ -1,14 +1,13 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from backend import models, database
+from backend.dependencies import require_authenticated_empresa
 from sqlalchemy.orm import Session
-from typing import Optional
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 @router.get("")
 def obter_dashboard(
-    token: Optional[str] = Query(None),
-    empresa: models.Empresa = Depends(database.get_db),
+    empresa: models.Empresa = Depends(require_authenticated_empresa),
     db: Session = Depends(database.get_db)
 ):
     total_clientes = db.query(models.Cliente).filter(models.Cliente.empresa_id == empresa.id).count()

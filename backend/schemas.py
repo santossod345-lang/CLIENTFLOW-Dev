@@ -13,8 +13,9 @@ class EmpresaOut(BaseModel):
     limite_clientes: int | None = None
     limite_atendimentos: int | None = None
     ativo: int | None = None
-    class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
 
 class EmpresaLogin(BaseModel):
     email_login: str
@@ -33,9 +34,9 @@ class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
-
-    class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
 
 
 class EmpresaCreate(BaseModel):

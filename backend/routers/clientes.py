@@ -1,15 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status
 from backend.schemas import ClienteCreate, ClienteOut
 from backend import models, database
+from backend.dependencies import require_authenticated_empresa
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List
 
 router = APIRouter(prefix="/api/clientes", tags=["clientes"])
 
 @router.get("", response_model=List[ClienteOut])
 def listar_clientes(
-    token: Optional[str] = Query(None),
-    empresa: models.Empresa = Depends(database.get_db),
+    empresa: models.Empresa = Depends(require_authenticated_empresa),
     db: Session = Depends(database.get_db)
 ):
     clientes = db.query(models.Cliente).filter(models.Cliente.empresa_id == empresa.id).order_by(models.Cliente.data_primeiro_contato.desc()).all()
@@ -18,7 +18,7 @@ def listar_clientes(
 @router.post("", status_code=status.HTTP_201_CREATED)
 def criar_cliente(
     cliente: ClienteCreate,
-    empresa: models.Empresa = Depends(database.get_db),
+    empresa: models.Empresa = Depends(require_authenticated_empresa),
     db: Session = Depends(database.get_db)
 ):
     existente = db.query(models.Cliente).filter(

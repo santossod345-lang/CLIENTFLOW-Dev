@@ -4,7 +4,7 @@ from fastapi.security import OAuth2PasswordBearer
 from backend import models, database
 from sqlalchemy.orm import Session
 from typing import Optional, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import os
 import hashlib
 import uuid
@@ -25,7 +25,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     Cria um JWT seguro para autenticação
     """
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -59,9 +59,8 @@ def decode_access_token(token: str):
     except JWTError:
         return None
 
-"""
-Sistema de autenticação e segurança
-"""
+
+# ====== Criptografia de Senhas ======
 from passlib.context import CryptContext
 import secrets
 
@@ -103,7 +102,7 @@ def create_refresh_token(db: Session, empresa_id: int) -> str:
     jti = uuid.uuid4().hex
     token_value = f"{jti}::{raw}"
     token_hash = _hash_token(raw)
-    expires_at = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     rt = models.RefreshToken(
         empresa_id=empresa_id,
         token_hash=token_hash,
@@ -127,7 +126,7 @@ def rotate_refresh_token(db: Session, old_jti: str, new_token_plain: str) -> Tup
     new_jti = uuid.uuid4().hex
     raw = new_token_plain
     token_hash = _hash_token(raw)
-    expires_at = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     new_rt = models.RefreshToken(
         empresa_id=old.empresa_id,
         token_hash=token_hash,
@@ -151,7 +150,7 @@ def verify_refresh_token(db: Session, token: str) -> Optional[models.RefreshToke
     rt = db.query(models.RefreshToken).filter(models.RefreshToken.jti == jti).first()
     if not rt or rt.revoked:
         return None
-    if rt.expires_at and rt.expires_at < datetime.utcnow():
+    if rt.expires_at and rt.expires_at < datetime.now(timezone.utc):
         return None
     if _hash_token(raw) != rt.token_hash:
         return None
