@@ -8,6 +8,11 @@ from datetime import datetime, timedelta, timezone
 import os
 import hashlib
 import uuid
+from dotenv import load_dotenv
+
+# Carregar variáveis de ambiente do .env
+load_dotenv()
+
 # OAuth2 scheme para extrair o token do header Authorization
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/empresas/login")
 SECRET_KEY = os.getenv("JWT_SECRET_KEY") or os.getenv("SECRET_KEY") or ""
@@ -40,10 +45,12 @@ def get_current_empresa_jwt(token: str = Depends(oauth2_scheme), db: Session = D
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        empresa_id: int = payload.get("sub")
-        if empresa_id is None:
+        empresa_id_str: str = payload.get("sub")
+        if empresa_id_str is None:
             raise credentials_exception
-    except JWTError:
+        # Converter para int (JWT padra exige string, mas nossa DB usa int)
+        empresa_id: int = int(empresa_id_str)
+    except (JWTError, ValueError):
         raise credentials_exception
     empresa = db.query(models.Empresa).filter(models.Empresa.id == empresa_id).first()
     if empresa is None:
@@ -74,15 +81,27 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 def get_password_hash(password: str) -> str:
     """
     Cria hash seguro da senha usando bcrypt
+    Bcrypt tem limite de 72 bytes, portanto truncar se necessário
     """
-    return pwd_context.hash(password)
+    # Truncar a 72 bytes (limite do bcrypt)
+    pwd_bytes = password.encode('utf-8')
+    if len(pwd_bytes) > 72:
+        pwd_bytes = pwd_bytes[:72]
+    pwd_str = pwd_bytes.decode('utf-8', errors='ignore')
+    return pwd_context.hash(pwd_str)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
     Verifica se a senha corresponde ao hash
+    Aplica o mesmo truncamento no bcrypt
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    # Truncar a 72 bytes (mesmo limite)
+    pwd_bytes = plain_password.encode('utf-8')
+    if len(pwd_bytes) > 72:
+        pwd_bytes = pwd_bytes[:72]
+    pwd_str = pwd_bytes.decode('utf-8', errors='ignore')
+    return pwd_context.verify(pwd_str, hashed_password)
 
 
 def create_session_token() -> str:

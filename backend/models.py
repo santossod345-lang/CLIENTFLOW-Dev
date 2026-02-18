@@ -49,6 +49,7 @@ class Empresa(BaseModel):
     ativo = Column(Integer, default=1)
     limite_clientes = Column(Integer, default=1000)
     limite_atendimentos = Column(Integer, default=5000)
+    logo_url = Column(String, nullable=True)
     clientes = relationship("Cliente", back_populates="empresa", cascade=CASCADE_DELETE_ORPHAN)
     atendimentos = relationship("Atendimento", back_populates="empresa", cascade=CASCADE_DELETE_ORPHAN)
 

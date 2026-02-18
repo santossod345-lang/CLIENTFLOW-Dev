@@ -5,6 +5,8 @@ if (typeof process !== 'undefined' && process.env && process.env.API_URL) {
     API_URL = process.env.API_URL;
 } else if (window && window.API_URL) {
     API_URL = window.API_URL;
+} else if (window && window.location && window.location.hostname === 'localhost') {
+    API_URL = "http://localhost:8000";
 }
 
 // Função utilitária para requisições autenticadas (JWT ou token antigo)
@@ -30,6 +32,19 @@ async function fetchAuth(url, options = {}) {
     }
     return response;
 }
+
+// Unwrap standardized API responses to keep compatibility with legacy payloads
+function unwrapApiPayload(payload) {
+    if (payload && typeof payload === 'object' && payload.status && Object.prototype.hasOwnProperty.call(payload, 'data')) {
+        return payload.data;
+    }
+    return payload;
+}
+
+async function readJson(response) {
+    const payload = await response.json();
+    return unwrapApiPayload(payload);
+}
 // ========== CONFIRMAÇÃO DE LOGOUT ==========
 function handleLogout() {
     if (confirm('Tem certeza que deseja sair?')) {
@@ -50,7 +65,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // CORRIGIDO: fetch para clientes
                 const resp = await fetch(`${API_URL}/api/clientes?token=${token}`);
                 if (!resp.ok) return;
-                const clientes = await resp.json();
+                const clientes = await readJson(resp);
                 const cliente = clientes.find(c => (c.telefone||'').replace(/\D/g, '') === telefone);
                 if (cliente) {
                     document.getElementById('cliente-nome').value = cliente.nome;
@@ -70,7 +85,7 @@ async function analisarClienteIA() {
     showLoading();
     try {
         const resp = await fetch(`${API_IA}/resumo_cliente/${clienteId}`);
-        const data = await resp.json();
+        const data = await readJson(resp);
         showIAResposta(data.resumo || "Erro ao analisar cliente.");
     } catch (e) {
         showIAResposta("Erro ao analisar cliente.");
@@ -83,7 +98,7 @@ async function verSugestoesIA() {
     showLoading();
     try {
         const resp = await fetch(`${API_IA}/sugestoes/${empresa.id}`);
-        const data = await resp.json();
+        const data = await readJson(resp);
         showIAResposta(data.sugestoes ? data.sugestoes.map(s=>`${s.cliente}: ${s.sugestao}`).join('<br>') : "Erro ao obter sugestões.");
     } catch (e) {
         showIAResposta("Erro ao obter sugestões.");
@@ -96,7 +111,7 @@ async function verInsightsIA() {
     showLoading();
     try {
         const resp = await fetch(`${API_IA}/insights/${empresa.id}`);
-        const data = await resp.json();
+        const data = await readJson(resp);
         showIAResposta(data.insights ? data.insights.join('<br>') : "Erro ao obter insights.");
     } catch (e) {
         showIAResposta("Erro ao obter insights.");
@@ -109,7 +124,7 @@ async function gerarResumoIA() {
     showLoading();
     try {
         const resp = await fetch(`${API_IA}/resumo_cliente/${clienteId}`);
-        const data = await resp.json();
+        const data = await readJson(resp);
         showIAResposta(data.resumo || "Erro ao gerar resumo.");
     } catch (e) {
         showIAResposta("Erro ao gerar resumo.");
@@ -127,7 +142,7 @@ async function perguntarIA() {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ pergunta, empresa_id: empresa.id })
         });
-        const data = await resp.json();
+        const data = await readJson(resp);
         showIAResposta(data.resposta || "Erro ao perguntar à IA.");
     } catch (e) {
         showIAResposta("Erro ao perguntar à IA.");
@@ -145,7 +160,7 @@ function checarNotificacoesRetorno() {
     const empresa = JSON.parse(localStorage.getItem('empresa'));
     if (!empresa) return;
     fetch(`${API_URL}/api/clientes_para_retorno/${empresa.id}`)
-        .then(resp => resp.json())
+        .then(resp => readJson(resp))
         .then(clientes => {
             if (clientes && clientes.length) {
                 const nomes = clientes.map(c => c.cliente_nome || c.nome).join(', ');
@@ -162,7 +177,7 @@ window.addEventListener('DOMContentLoaded', checarNotificacoesRetorno);
 function carregarLogsAcoes() {
     showLoading();
     fetch(`${API_URL}/api/logs_acoes`)
-        .then(resp => resp.json())
+        .then(resp => readJson(resp))
         .then(logs => {
             const container = document.getElementById('logs-acoes-list');
             if (!logs.length) {
@@ -184,7 +199,7 @@ function exportarCSV(tipo) {
     showLoading();
     let url = tipo==='clientes' ? `${API_URL}/api/clientes` : `${API_URL}/api/atendimentos`;
     fetchAuth(url)
-        .then(resp => resp.json())
+        .then(resp => readJson(resp))
         .then(dados => {
             if (!Array.isArray(dados) || !dados.length) {
                 showToast('Nenhum dado para exportar.','error');
@@ -237,7 +252,7 @@ async function loadClientesRetorno() {
     container.innerHTML = '<p>Carregando...</p>';
     try {
         const response = await fetchAuth(`${API_URL}/api/clientes_retorno/${empresa.id}`);
-        const clientes = await response.json();
+        const clientes = await readJson(response);
         if (response.ok) {
             if (clientes.length === 0) {
                 container.innerHTML = '<p>Nenhum cliente para retorno.</p>';
@@ -273,37 +288,37 @@ async function loadClientesRetorno() {
 // ========== BUSCA GLOBAL DE CLIENTES ==========
 
 const handleBuscaGlobal = debounce(async function() {
-    const empresa = JSON.parse(localStorage.getItem('empresa'));
-    const q = document.getElementById('busca-global').value.trim();
+    const q = document.getElementById('busca-global').value.trim().toLowerCase();
     const container = document.getElementById('resultados-busca');
+    if (!container) return;
+    if (!q) {
+        container.innerHTML = '';
+        return;
+    }
     try {
-        const response = await fetch(`${API_URL}/api/clientes?token=${token}`);
-        let clientes = await response.json();
-        if (response.ok) {
-            clientesCache = clientes;
-            // Ordenar por data_primeiro_contato decrescente
-            clientes = clientes.sort((a, b) => new Date(b.data_primeiro_contato) - new Date(a.data_primeiro_contato));
-            if (clientes.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5">Nenhum cliente cadastrado ainda.</td></tr>';
-            } else {
-                tbody.innerHTML = clientes.map(cliente => `
-                    <tr>
-                        <td onclick="mostrarHistoricoCliente(${cliente.id}, '${cliente.nome}')" style="cursor:pointer;">${cliente.nome}</td>
-                        <td>${formatarTelefone(cliente.telefone)}</td>
-                        <td>${formatarData(cliente.data_primeiro_contato)}</td>
-                        <td><button class='btn-edit' onclick='event.stopPropagation();editarCliente(${cliente.id})'>✏️</button></td>
-                        <td><button class='btn-delete' onclick='event.stopPropagation();excluirCliente(${cliente.id})'>🗑️</button></td>
-                    </tr>
-                `).join('');
+        const response = await fetchAuth(`${API_URL}/api/clientes`);
+        if (!response) return;
+        let clientes = await readJson(response);
+        if (response.ok && Array.isArray(clientes)) {
+            clientes = clientes.filter(c =>
+                (c.nome || '').toLowerCase().includes(q) ||
+                (c.telefone || '').replace(/\D/g, '').includes(q.replace(/\D/g, ''))
+            );
+            if (!clientes.length) {
+                container.innerHTML = '<div class="cf-list-item"><span>Nenhum resultado.</span></div>';
+                return;
             }
-        } else {
-            tbody.innerHTML = '<tr><td colspan="3">Erro ao carregar clientes.</td></tr>';
+            container.innerHTML = clientes.slice(0, 6).map(c => `
+                <div class="cf-list-item" onclick="mostrarHistoricoCliente(${c.id}, '${c.nome}')">
+                    <strong>${c.nome}</strong>
+                    <span>${formatarTelefone(c.telefone || '')}</span>
+                </div>
+            `).join('');
         }
     } catch (error) {
-        console.error('Erro ao carregar clientes:', error);
-        tbody.innerHTML = '<tr><td colspan="3">Erro ao carregar clientes.</td></tr>';
+        console.error('Erro ao buscar clientes:', error);
+        container.innerHTML = '<div class="cf-list-item"><span>Erro na busca.</span></div>';
     }
-    container.innerHTML = '<p>Erro na busca.</p>';
 }, 400);
 
 // ========== HISTÓRICO POR CLIENTE ==========
@@ -317,7 +332,7 @@ async function mostrarHistoricoCliente(clienteId, nomeCliente) {
     try {
         const token = localStorage.getItem('token');
         const response = await fetch(`${API_URL}/api/clientes/${clienteId}?token=${token}`);
-        const perfil = await response.json();
+        const perfil = await readJson(response);
         if (response.ok) {
             totalDiv.textContent = `Total já gasto: R$ ${perfil.total_gasto.toFixed(2)}`;
             if (!perfil.atendimentos || perfil.atendimentos.length === 0) {
@@ -354,7 +369,7 @@ async function loadEstatisticasDashboard() {
     container.innerHTML = '<p>Carregando...</p>';
     try {
         const response = await fetchAuth(`${API_URL}/api/estatisticas/${empresa.id}`);
-        const stats = await response.json();
+        const stats = await readJson(response);
         if (response.ok) {
             let html = `
                 <p><strong>Total de clientes:</strong> ${stats.total_clientes}</p>
@@ -391,7 +406,7 @@ async function loadAtendimentos() {
         const periodo = document.getElementById('filtro-periodo')?.value;
         if (periodo) url += `&periodo=${periodo}`;
         const response = await fetch(url);
-        let atendimentos = await response.json();
+        let atendimentos = await readJson(response);
         if (response.ok) {
             // Ordenar por data_atendimento decrescente
             atendimentos = atendimentos.sort((a, b) => new Date(b.data_atendimento) - new Date(a.data_atendimento));
@@ -587,7 +602,7 @@ async function loadClientesRecentes() {
     container.innerHTML = '<p>Carregando...</p>';
     try {
         const response = await fetch(`${API_URL}/api/clientes?token=${token}`);
-        const clientes = await response.json();
+        const clientes = await readJson(response);
         if (response.ok) {
             if (clientes.length === 0) {
                 container.innerHTML = '<p>Nenhum cliente cadastrado ainda.</p>';
@@ -617,7 +632,7 @@ async function loadAtendimentosRecentes() {
     container.innerHTML = '<p>Carregando...</p>';
     try {
         const response = await fetch(`${API_URL}/api/atendimentos?token=${token}`);
-        const atendimentos = await response.json();
+        const atendimentos = await readJson(response);
         if (response.ok) {
             if (atendimentos.length === 0) {
                 container.innerHTML = '<p>Nenhum atendimento registrado ainda.</p>';
@@ -665,52 +680,57 @@ function filtrarClientesTabela() {
 // Atualizar loadDashboard para mostrar clientes ativos/inativos
 const oldLoadDashboard = window.loadDashboard;
 window.loadDashboard = async function() {
-    const token = localStorage.getItem('token');
     try {
-        const response = await fetch(`${API_URL}/api/dashboard?token=${token}`);
-        const data = await response.json();
-        if (response.ok) {
-            document.getElementById('total-clientes').textContent = data.estatisticas.total_clientes;
-            document.getElementById('total-atendimentos').textContent = data.estatisticas.total_atendimentos;
-            if (data.estatisticas.total_clientes_ativos !== undefined) {
-                document.getElementById('total-clientes-ativos').textContent = data.estatisticas.total_clientes_ativos;
-            }
-            if (data.estatisticas.total_clientes_inativos !== undefined) {
-                document.getElementById('total-clientes-inativos').textContent = data.estatisticas.total_clientes_inativos;
-            }
-            // Atendimentos recentes
-            const container = document.getElementById('atendimentos-recentes');
-            if (data.atendimentos_recentes.length === 0) {
-                container.innerHTML = '<p>Nenhum atendimento registrado ainda.</p>';
-            } else {
-                container.innerHTML = data.atendimentos_recentes.map(at => `
-                    <div class="list-item">
+        const response = await fetchAuth(`${API_URL}/api/dashboard`);
+        if (!response) return;
+        const data = await readJson(response);
+        if (!response.ok || !data) {
+            if (response.status === 401) handleLogout();
+            return;
+        }
+
+        const metricas = data.metricas || data.estatisticas || {};
+
+        const setText = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        };
+
+        setText('total-clientes', metricas.total_clientes || 0);
+        setText('total-atendimentos', metricas.total_atendimentos || 0);
+        setText('clientes-novos', metricas.clientes_novos_periodo || metricas.clientes_novos_mes || 0);
+        setText('taxa-atividade', `${metricas.taxa_atividade_diaria || 0}%`);
+        setText('total-atendimentos-ring', metricas.total_atendimentos || 0);
+        setText('total-clientes-ativos', metricas.total_clientes_ativos || 0);
+        setText('total-clientes-inativos', metricas.total_clientes_inativos || 0);
+
+        const container = document.getElementById('atendimentos-recentes');
+        if (container) {
+            const recentes = data.atendimentos_recentes || [];
+            container.innerHTML = recentes.length === 0
+                ? '<p>Nenhum atendimento registrado ainda.</p>'
+                : recentes.map(at => `
+                    <div class="cf-list-item">
                         <div>
-                            <strong>${at.cliente_nome}</strong>
-                            <p>${at.tipo_servico || '-'} - ${at.data}</p>
+                            <strong>${at.cliente_nome || '-'}</strong>
+                            <p>${at.tipo_servico || at.tipo || '-'} • ${at.data || '-'}</p>
                         </div>
+                        <span class="cf-badge">Em andamento</span>
                     </div>
                 `).join('');
-            }
+        }
 
-            // Ranking de clientes mais ativos
-            const rankingContainer = document.getElementById('ranking-clientes');
-            if (rankingContainer) {
-                if (!data.top_clientes || data.top_clientes.length === 0) {
-                    rankingContainer.innerHTML = '<p>Nenhum cliente ativo encontrado.</p>';
-                } else {
-                    rankingContainer.innerHTML = data.top_clientes.map((c, idx) => `
-                        <div class="list-item">
-                            <span style="font-weight:bold;">#${idx+1}</span> <strong>${c.nome}</strong>
-                            <span style="float:right;">${c.total_atendimentos} atendimentos</span>
-                        </div>
-                    `).join('');
-                }
-            }
-        } else {
-            if (response.status === 401) {
-                handleLogout();
-            }
+        const rankingContainer = document.getElementById('ranking-clientes');
+        if (rankingContainer) {
+            const top = data.top_clientes || [];
+            rankingContainer.innerHTML = top.length === 0
+                ? '<p>Nenhum cliente ativo encontrado.</p>'
+                : top.map((c, idx) => `
+                    <div class="cf-list-item">
+                        <strong>#${idx + 1} ${c.nome}</strong>
+                        <span>${c.total_atendimentos} atendimentos</span>
+                    </div>
+                `).join('');
         }
     } catch (error) {
         console.error('Erro ao carregar dashboard:', error);
@@ -722,8 +742,10 @@ async function loadGraficosDashboard() {
     const empresa = JSON.parse(localStorage.getItem('empresa'));
     if (!empresa) return;
     // Atendimentos por mês
-    const resAt = await fetch(`${API_URL}/api/estatisticas/${empresa.id}`);
-    const dadosAt = await resAt.json();
+    const resAt = await fetchAuth(`${API_URL}/api/estatisticas/${empresa.id}`);
+    if (!resAt) return;
+    const dadosAt = await readJson(resAt);
+    if (!dadosAt || !dadosAt.labels) return;
     if (window.graficoAtendimentos) window.graficoAtendimentos.destroy();
     const ctxAt = document.getElementById('grafico-atendimentos').getContext('2d');
     window.graficoAtendimentos = new Chart(ctxAt, {
@@ -735,8 +757,10 @@ async function loadGraficosDashboard() {
         options: { plugins: { legend: { display: false } } }
     });
     // Clientes por mês
-    const resCl = await fetch(`${API_URL}/api/estatisticas/${empresa.id}`);
-    const dadosCl = await resCl.json();
+    const resCl = await fetchAuth(`${API_URL}/api/estatisticas/${empresa.id}`);
+    if (!resCl) return;
+    const dadosCl = await readJson(resCl);
+    if (!dadosCl || !dadosCl.labels) return;
     if (window.graficoClientes) window.graficoClientes.destroy();
     const ctxCl = document.getElementById('grafico-clientes').getContext('2d');
     window.graficoClientes = new Chart(ctxCl, {
@@ -763,7 +787,7 @@ async function loadClientesInativos() {
     container.innerHTML = '<p>Carregando...</p>';
     try {
         const response = await fetch(`${API_URL}/api/clientes_inativos/${empresa.id}`);
-        const clientes = await response.json();
+        const clientes = await readJson(response);
         if (clientes.length === 0) {
             container.innerHTML = '<p>Nenhum cliente inativo.</p>';
         } else {
@@ -786,7 +810,7 @@ async function loadClientesParaRetorno() {
     container.innerHTML = '<p>Carregando...</p>';
     try {
         const response = await fetch(`${API_URL}/api/clientes_para_retorno/${empresa.id}`);
-        const clientes = await response.json();
+        const clientes = await readJson(response);
         if (clientes.length === 0) {
             container.innerHTML = '<p>Nenhum cliente para retorno.</p>';
         } else {
@@ -810,7 +834,7 @@ async function loadRankingClientes() {
     container.innerHTML = '<p>Carregando...</p>';
     try {
         const response = await fetch(`${API_URL}/api/ranking_clientes/${empresa.id}`);
-        const ranking = await response.json();
+        const ranking = await readJson(response);
         if (ranking.length === 0) {
             container.innerHTML = '<p>Nenhum dado.</p>';
         } else {
@@ -832,7 +856,7 @@ async function loadServicosComuns() {
     container.innerHTML = '<p>Carregando...</p>';
     try {
         const response = await fetch(`${API_URL}/api/servicos_comuns/${empresa.id}`);
-        const servicos = await response.json();
+        const servicos = await readJson(response);
         if (servicos.length === 0) {
             container.innerHTML = '<p>Nenhum dado.</p>';
         } else {

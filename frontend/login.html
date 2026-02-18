@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ClientFlow - Login</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <div class="login-container">
@@ -86,12 +86,12 @@
         </div>
     </div>
     
-    <script src="script.js"></script>
+    <script src="/static/script.js"></script>
     <script>
         // Funções específicas da página de login
 
         // Diagnóstico visual de conexão com backend
-        const STATUS_API_URL = "https://clientflow-production-99f1.up.railway.app";
+        const STATUS_API_URL = API_URL;
         async function checarStatusSistema() {
             const statusDiv = document.getElementById('status-sistema-msg');
             try {
@@ -126,83 +126,118 @@
             // Limpar mensagens
             document.getElementById('message').textContent = '';
         }
+
+        function unwrapApiPayload(payload) {
+            if (payload && typeof payload === 'object' && payload.status && Object.prototype.hasOwnProperty.call(payload, 'data')) {
+                return payload.data;
+            }
+            return payload;
+        }
+
+        function getApiErrorMessage(payload) {
+            if (payload && payload.error && payload.error.message) {
+                return payload.error.message;
+            }
+            if (payload && payload.detail) {
+                return payload.detail;
+            }
+            return 'Erro ao processar requisicao';
+        }
         
         async function handleLogin(event) {
             event.preventDefault();
+            console.log('[LOGIN] Iniciando...');
             
-            const email = document.getElementById('login-email').value;
+            const email = document.getElementById('login-email').value.trim();
             const senha = document.getElementById('login-senha').value;
             
+            if (!email || !senha) {
+                showMessage('✗ Preencha email e senha!', 'error');
+                return;
+            }
+            
+            showMessage('Autenticando...', 'info');
+            
             try {
-                const response = await fetch(`${API_URL}/empresas/login`, {
+                console.log('[LOGIN] Enviando para:', `${API_URL}/api/empresas/login`);
+                const response = await fetch(`${API_URL}/api/empresas/login`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        email_login: email,
-                        senha: senha
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email_login: email, senha: senha })
                 });
-                const data = await response.json();
+                console.log('[LOGIN] Status:', response.status);
+                
+                const raw = await response.json();
+                console.log('[LOGIN] Resposta:', raw);
+                
                 if (response.ok) {
-                    // Salvar tokens e dados da empresa
-                    localStorage.setItem('token', data.token);
-                    if (data.access_token) {
-                        localStorage.setItem('access_token', data.access_token);
-                    }
-                    localStorage.setItem('empresa', JSON.stringify(data.empresa));
-                    showMessage('Login realizado com sucesso!', 'success');
+                    console.log('[LOGIN] Sucesso!');
+                    const data = raw.data || raw;
+                    localStorage.setItem('token', data.token || data.access_token);
+                    localStorage.setItem('access_token', data.access_token);
+                    localStorage.setItem('empresa', JSON.stringify(data.empresa || data));
+                    showMessage('✓ Login realizado! Redirecionando...', 'success');
                     setTimeout(() => {
-                        window.location.href = 'dashboard.html';
+                        window.location.href = '/dashboard.html';
                     }, 1000);
                 } else {
-                    showMessage(data.detail || 'Erro ao fazer login', 'error');
+                    const errorMsg = raw?.error?.message || raw?.detail || 'Credenciais inválidas';
+                    console.log('[LOGIN] Erro:', errorMsg);
+                    showMessage('✗ ' + errorMsg, 'error');
                 }
             } catch (error) {
-                showMessage('Erro ao conectar com o servidor', 'error');
-                console.error('Erro:', error);
+                console.error('[LOGIN] Exceção:', error);
+                showMessage('✗ Erro de conexão: ' + error.message, 'error');
             }
         }
         
         async function handleCadastro(event) {
             event.preventDefault();
+            console.log('[CADASTRO] Iniciando...');
             
-            const empresa = {
-                nome_empresa: document.getElementById('nome-empresa').value,
-                nicho: document.getElementById('nicho').value,
-                telefone: document.getElementById('telefone').value,
-                email_login: document.getElementById('email').value,
-                senha: document.getElementById('senha').value
-            };
+            const nome_empresa = document.getElementById('nome-empresa').value.trim();
+            const nicho = document.getElementById('nicho').value.trim();
+            const telefone = document.getElementById('telefone').value.trim();
+            const email_login = document.getElementById('email').value.trim();
+            const senha = document.getElementById('senha').value;
+            
+            // Validação básica
+            if (!nome_empresa || !nicho || !email_login || !senha) {
+                showMessage('Preencha todos os campos obrigatórios!', 'error');
+                console.log('[CADASTRO] Campos vazios');
+                return;
+            }
+            
+            const empresa = { nome_empresa, nicho, telefone, email_login, senha };
+            console.log('[CADASTRO] Dados:', { nome_empresa, nicho, email_login });
+            
+            showMessage('Processando cadastro...', 'info');
             
             try {
-                const response = await fetch(`${API_URL}/empresas/cadastrar`, {
+                console.log('[CADASTRO] Enviando para:', `${API_URL}/api/empresas/cadastrar`);
+                const response = await fetch(`${API_URL}/api/empresas/cadastrar`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(empresa)
                 });
                 
-                const data = await response.json();
+                console.log('[CADASTRO] Status:', response.status);
+                const raw = await response.json();
+                console.log('[CADASTRO] Resposta:', raw);
                 
                 if (response.ok) {
-                    showMessage('Empresa cadastrada com sucesso! Faça login.', 'success');
-                    
-                    // Limpar formulário
+                    console.log('[CADASTRO] Sucesso!');
+                    showMessage('✓ Empresa cadastrada com sucesso! Faça login agora.', 'success');
                     document.getElementById('cadastro-form').reset();
-                    
-                    // Mudar para tab de login após 2 segundos
-                    setTimeout(() => {
-                        showTab('login');
-                    }, 2000);
+                    setTimeout(() => { showTab('login'); }, 2000);
                 } else {
-                    showMessage(data.detail || 'Erro ao cadastrar empresa', 'error');
+                    const errorMsg = raw?.error?.message || raw?.detail || 'Erro no cadastro';
+                    console.log('[CADASTRO] Erro:', errorMsg);
+                    showMessage('✗ ' + errorMsg, 'error');
                 }
             } catch (error) {
-                showMessage('Erro ao conectar com o servidor', 'error');
-                console.error('Erro:', error);
+                console.error('[CADASTRO] Exceção:', error);
+                showMessage('✗ Erro ao conectar: ' + error.message, 'error');
             }
         }
         
@@ -211,6 +246,15 @@
             messageDiv.textContent = msg;
             messageDiv.className = `message ${type}`;
             messageDiv.style.display = 'block';
+            messageDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            console.log('[MESSAGE]', type.toUpperCase(), msg);
+            
+            // Auto-hide após 8 segundos para mensagens de sucesso
+            if (type === 'success') {
+                setTimeout(() => {
+                    messageDiv.style.display = 'none';
+                }, 8000);
+            }
         }
         
         // Verificar se já está logado

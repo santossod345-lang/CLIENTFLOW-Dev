@@ -1,0 +1,23 @@
+[build]
+# Especificar a raiz do projeto
+root = "."
+
+# Variáveis de ambiente do build
+builder = "dockerfile"
+
+[deploy]
+# Health check
+restartPolicyMaxRetries = 5
+
+# Ambiente de execução
+startCommand = "python -m alembic upgrade head && gunicorn main:app -k uvicorn.workers.UvicornWorker --workers 4 --bind 0.0.0.0:$PORT --timeout 60 --access-logfile -"
+
+[[services]]
+name = "postgres"
+icon = "@railwayapp/icon-postgres"
+allowInstanceTypeSelection = true
+
+[[services]]
+name = "redis"
+icon = "@railwayapp/icon-redis"
+allowInstanceTypeSelection = true

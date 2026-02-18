@@ -1,0 +1,46 @@
+# Backend files
+backend/
+alembic/
+alembic.ini
+requirements.txt
+Dockerfile
+Procfile
+railway.toml
+
+# Version control
+.git
+.gitignore
+
+# Documentation
+*.md
+docs/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Node modules (will be installed during build)
+node_modules/
+
+# Build artifacts
+.next
+out
+
+# OS
+.DS_Store
+*.log
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Testing
+coverage/
+.nyc_output/
+
+# Other
+scripts/
+tests/
