@@ -5,6 +5,7 @@ from sqlalchemy.orm import sessionmaker, scoped_session
 
 # Configuração via variáveis de ambiente
 # Prioriza DATABASE_URL (Railway/Heroku), senão usa variáveis individuais
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower().strip()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if DATABASE_URL:
@@ -15,6 +16,13 @@ if DATABASE_URL:
     SQLALCHEMY_DATABASE_URL = DATABASE_URL
 else:
     # Fallback para variáveis individuais (desenvolvimento local)
+    if ENVIRONMENT == "production":
+        # Do not crash at import time; Railway will restart-loop and return 502.
+        # Log loudly so the env var gets fixed.
+        import logging
+        logging.getLogger("clientflow.db").error(
+            "DATABASE_URL is missing in production. Falling back to POSTGRES_* env vars; database connectivity may fail."
+        )
     POSTGRES_USER = os.getenv("POSTGRES_USER", "clientflow")
     POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "clientflow")
     POSTGRES_DB = os.getenv("POSTGRES_DB", "clientflow")
@@ -54,4 +62,10 @@ def get_db(schema: str = None):
     try:
         yield db
     finally:
+        # Important for Postgres + connection pooling: avoid leaking tenant search_path
+        # across requests when the connection is returned to the pool.
+        try:
+            db.execute(text("RESET search_path"))
+        except Exception:
+            pass
         db.close()

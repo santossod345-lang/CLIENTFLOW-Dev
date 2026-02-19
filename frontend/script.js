@@ -30,6 +30,39 @@ async function fetchAuth(url, options = {}) {
     }
     return response;
 }
+
+// ========== DASHBOARD PREMIUM: FILTRO GLOBAL DE PERÍODO ==========
+window.selectedPeriod = window.selectedPeriod || '7d';
+
+function setSelectedPeriod(periodKey) {
+    window.selectedPeriod = periodKey;
+    const ids = ['today', '7d', '30d', 'month'];
+    ids.forEach(k => {
+        const btn = document.getElementById(`period-btn-${k}`);
+        if (btn) btn.classList.toggle('active', k === periodKey);
+    });
+    if (typeof window.loadDashboard === 'function') window.loadDashboard();
+    if (typeof loadGraficosDashboard === 'function') loadGraficosDashboard();
+}
+
+function formatarMoedaBRL(valor) {
+    const n = Number(valor || 0);
+    return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function renderTrend(el, percentual) {
+    if (!el) return;
+    el.classList.remove('positive', 'negative');
+    if (percentual > 0) {
+        el.classList.add('positive');
+        el.textContent = `↑ ${Math.abs(percentual).toFixed(1)}% vs período anterior`;
+    } else if (percentual < 0) {
+        el.classList.add('negative');
+        el.textContent = `↓ ${Math.abs(percentual).toFixed(1)}% vs período anterior`;
+    } else {
+        el.textContent = `— 0% vs período anterior`;
+    }
+}
 // ========== CONFIRMAÇÃO DE LOGOUT ==========
 function handleLogout() {
     if (confirm('Tem certeza que deseja sair?')) {
@@ -665,25 +698,42 @@ function filtrarClientesTabela() {
 // Atualizar loadDashboard para mostrar clientes ativos/inativos
 const oldLoadDashboard = window.loadDashboard;
 window.loadDashboard = async function() {
-    const token = localStorage.getItem('token');
     try {
-        const response = await fetch(`${API_URL}/api/dashboard?token=${token}`);
-        const data = await response.json();
-        if (response.ok) {
-            document.getElementById('total-clientes').textContent = data.estatisticas.total_clientes;
-            document.getElementById('total-atendimentos').textContent = data.estatisticas.total_atendimentos;
-            if (data.estatisticas.total_clientes_ativos !== undefined) {
-                document.getElementById('total-clientes-ativos').textContent = data.estatisticas.total_clientes_ativos;
-            }
-            if (data.estatisticas.total_clientes_inativos !== undefined) {
-                document.getElementById('total-clientes-inativos').textContent = data.estatisticas.total_clientes_inativos;
-            }
+        const period = encodeURIComponent(window.selectedPeriod || '7d');
+        const [dashResp, analyticsResp] = await Promise.all([
+            fetchAuth(`${API_URL}/api/dashboard?period=${period}`),
+            fetchAuth(`${API_URL}/api/dashboard/analytics?period=${period}`)
+        ]);
+        if (!dashResp || !analyticsResp) return;
+
+        const dashData = await dashResp.json();
+        const analyticsData = await analyticsResp.json();
+
+        if (analyticsResp.ok) {
+            const receita = analyticsData?.metrics?.revenue?.current ?? 0;
+            const atendimentos = analyticsData?.metrics?.appointments?.current ?? 0;
+            const novosClientes = analyticsData?.metrics?.clients?.current ?? 0;
+
+            const elReceita = document.getElementById('stat-receita');
+            const elAt = document.getElementById('stat-atendimentos');
+            const elNc = document.getElementById('stat-novos-clientes');
+            if (elReceita) elReceita.textContent = formatarMoedaBRL(receita);
+            if (elAt) elAt.textContent = Math.round(atendimentos).toString();
+            if (elNc) elNc.textContent = Math.round(novosClientes).toString();
+
+            renderTrend(document.getElementById('trend-receita'), analyticsData?.metrics?.revenue?.percentage ?? 0);
+            renderTrend(document.getElementById('trend-atendimentos'), analyticsData?.metrics?.appointments?.percentage ?? 0);
+            renderTrend(document.getElementById('trend-novos-clientes'), analyticsData?.metrics?.clients?.percentage ?? 0);
+        }
+
+        if (dashResp.ok) {
+
             // Atendimentos recentes
             const container = document.getElementById('atendimentos-recentes');
-            if (data.atendimentos_recentes.length === 0) {
+            if (dashData.atendimentos_recentes.length === 0) {
                 container.innerHTML = '<p>Nenhum atendimento registrado ainda.</p>';
             } else {
-                container.innerHTML = data.atendimentos_recentes.map(at => `
+                container.innerHTML = dashData.atendimentos_recentes.map(at => `
                     <div class="list-item">
                         <div>
                             <strong>${at.cliente_nome}</strong>
@@ -696,10 +746,10 @@ window.loadDashboard = async function() {
             // Ranking de clientes mais ativos
             const rankingContainer = document.getElementById('ranking-clientes');
             if (rankingContainer) {
-                if (!data.top_clientes || data.top_clientes.length === 0) {
+                if (!dashData.top_clientes || dashData.top_clientes.length === 0) {
                     rankingContainer.innerHTML = '<p>Nenhum cliente ativo encontrado.</p>';
                 } else {
-                    rankingContainer.innerHTML = data.top_clientes.map((c, idx) => `
+                    rankingContainer.innerHTML = dashData.top_clientes.map((c, idx) => `
                         <div class="list-item">
                             <span style="font-weight:bold;">#${idx+1}</span> <strong>${c.nome}</strong>
                             <span style="float:right;">${c.total_atendimentos} atendimentos</span>
@@ -707,8 +757,10 @@ window.loadDashboard = async function() {
                     `).join('');
                 }
             }
-        } else {
-            if (response.status === 401) {
+        }
+
+        if (!dashResp.ok || !analyticsResp.ok) {
+            if (dashResp.status === 401 || analyticsResp.status === 401) {
                 handleLogout();
             }
         }
@@ -719,34 +771,106 @@ window.loadDashboard = async function() {
 
 // Carregar gráficos do dashboard
 async function loadGraficosDashboard() {
-    const empresa = JSON.parse(localStorage.getItem('empresa'));
-    if (!empresa) return;
-    // Atendimentos por mês
-    const resAt = await fetch(`${API_URL}/api/estatisticas/${empresa.id}`);
-    const dadosAt = await resAt.json();
+    if (!window.Chart) return;
+    const url = `${API_URL}/api/dashboard/analytics?period=${encodeURIComponent(window.selectedPeriod || '7d')}`;
+    const response = await fetchAuth(url);
+    if (!response) return;
+    const data = await response.json();
+    if (!response.ok) return;
+
+    const receitaSeries = data?.revenue_series;
+    const clientesSeries = data?.clients_series;
+    if (!Array.isArray(receitaSeries) || !Array.isArray(clientesSeries)) return;
+
+    const receitaLabels = receitaSeries.map(p => p.date);
+    const receitaData = receitaSeries.map(p => Number(p.value || 0));
+    const clientesLabels = clientesSeries.map(p => p.date);
+    const clientesData = clientesSeries.map(p => Number(p.value || 0));
+
+    const rootStyles = getComputedStyle(document.documentElement);
+    const primaryColor = (rootStyles.getPropertyValue('--primary-color') || '').trim() || '#6366f1';
+    const successColor = (rootStyles.getPropertyValue('--success-color') || '').trim() || '#10b981';
+
+    const hexToRgba = (hex, alpha) => {
+        const clean = (hex || '').replace('#', '').trim();
+        if (clean.length !== 6) return hex;
+        const r = parseInt(clean.slice(0, 2), 16);
+        const g = parseInt(clean.slice(2, 4), 16);
+        const b = parseInt(clean.slice(4, 6), 16);
+        return `rgba(${r},${g},${b},${alpha})`;
+    };
+
     if (window.graficoAtendimentos) window.graficoAtendimentos.destroy();
-    const ctxAt = document.getElementById('grafico-atendimentos').getContext('2d');
-    window.graficoAtendimentos = new Chart(ctxAt, {
-        type: 'bar',
-        data: {
-            labels: dadosAt.labels,
-            datasets: [{ label: 'Atendimentos', data: dadosAt.data, backgroundColor: '#6366f1' }]
-        },
-        options: { plugins: { legend: { display: false } } }
-    });
-    // Clientes por mês
-    const resCl = await fetch(`${API_URL}/api/estatisticas/${empresa.id}`);
-    const dadosCl = await resCl.json();
+    const ctxReceita = document.getElementById('grafico-atendimentos')?.getContext('2d');
+    if (ctxReceita) {
+        window.graficoAtendimentos = new Chart(ctxReceita, {
+            type: 'line',
+            data: {
+                labels: receitaLabels,
+                datasets: [{
+                    label: 'Receita',
+                    data: receitaData,
+                    borderColor: primaryColor,
+                    backgroundColor: hexToRgba(primaryColor, 0.15),
+                    fill: true,
+                    tension: 0.25,
+                    pointRadius: 2,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => ` ${formatarMoedaBRL(ctx.parsed.y)}`
+                        }
+                    }
+                },
+                scales: {
+                    x: { ticks: { maxTicksLimit: 8 } },
+                    y: { ticks: { callback: (v) => `R$ ${v}` } }
+                },
+                animation: false,
+            }
+        });
+    }
+
     if (window.graficoClientes) window.graficoClientes.destroy();
-    const ctxCl = document.getElementById('grafico-clientes').getContext('2d');
-    window.graficoClientes = new Chart(ctxCl, {
-        type: 'line',
-        data: {
-            labels: dadosCl.labels,
-            datasets: [{ label: 'Novos Clientes', data: dadosCl.data, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.2)', fill: true }]
-        },
-        options: { plugins: { legend: { display: false } } }
-    });
+    const ctxClientes = document.getElementById('grafico-clientes')?.getContext('2d');
+    if (ctxClientes) {
+        window.graficoClientes = new Chart(ctxClientes, {
+            type: 'bar',
+            data: {
+                labels: clientesLabels,
+                datasets: [{
+                    label: 'Novos clientes',
+                    data: clientesData,
+                    backgroundColor: hexToRgba(successColor, 0.35),
+                    borderColor: successColor,
+                    borderWidth: 1,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => ` ${ctx.parsed.y} clientes`
+                        }
+                    }
+                },
+                scales: {
+                    x: { ticks: { maxTicksLimit: 8 } },
+                    y: { beginAtZero: true, ticks: { precision: 0 } }
+                },
+                animation: false,
+            }
+        });
+    }
 }
 
 // Chamar ao carregar dashboard

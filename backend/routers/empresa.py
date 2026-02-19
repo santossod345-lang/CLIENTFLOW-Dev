@@ -1,9 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from backend.schemas import EmpresaCreate, EmpresaLogin, EmpresaOut, RefreshRequest, TokenResponse
 from backend import models, auth, database
+from backend.dependencies import require_authenticated_empresa
 from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/api/empresas", tags=["empresas"])
+
+
+@router.get("/me", response_model=EmpresaOut)
+def obter_empresa_atual(empresa: models.Empresa = Depends(require_authenticated_empresa)):
+    return empresa
 
 @router.post("/cadastrar", response_model=EmpresaOut, status_code=status.HTTP_201_CREATED)
 def cadastrar_empresa(empresa: EmpresaCreate, db: Session = Depends(database.get_db)):

@@ -85,7 +85,15 @@
         <!-- CONTEÚDO PRINCIPAL -->
         <main class="main-content">
             <header class="top-bar">
-                <h1 id="page-title">Dashboard</h1>
+                <div class="top-bar-row">
+                    <h1 id="page-title">Dashboard</h1>
+                    <div class="period-filter" role="group" aria-label="Filtro de período">
+                        <button id="period-btn-today" class="period-btn" onclick="setSelectedPeriod('today')">Hoje</button>
+                        <button id="period-btn-7d" class="period-btn active" onclick="setSelectedPeriod('7d')">7 dias</button>
+                        <button id="period-btn-30d" class="period-btn" onclick="setSelectedPeriod('30d')">30 dias</button>
+                        <button id="period-btn-month" class="period-btn" onclick="setSelectedPeriod('month')">Mês atual</button>
+                    </div>
+                </div>
             </header>
             <!-- SEÇÃO INTELIGÊNCIA ARTIFICIAL -->
             <section id="ia-section" class="section active">
@@ -140,31 +148,27 @@
                     </div>
                     <div class="stats-grid">
                         <div class="stat-card">
-                            <div class="stat-icon">👥</div>
+                            <div class="stat-icon">💰</div>
                             <div class="stat-info">
-                                <h3>Total de Clientes</h3>
-                                <p class="stat-number" id="total-clientes">0</p>
+                                <h3>Receita (período)</h3>
+                                <p class="stat-number" id="stat-receita">R$ 0,00</p>
+                                <p class="stat-trend" id="trend-receita">—</p>
                             </div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-icon">📝</div>
                             <div class="stat-info">
-                                <h3>Total de Atendimentos</h3>
-                                <p class="stat-number" id="total-atendimentos">0</p>
+                                <h3>Atendimentos (período)</h3>
+                                <p class="stat-number" id="stat-atendimentos">0</p>
+                                <p class="stat-trend" id="trend-atendimentos">—</p>
                             </div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-icon">✅</div>
+                            <div class="stat-icon">👥</div>
                             <div class="stat-info">
-                                <h3>Clientes Ativos</h3>
-                                <p class="stat-number" id="total-clientes-ativos">0</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">⏸️</div>
-                            <div class="stat-info">
-                                <h3>Clientes Inativos</h3>
-                                <p class="stat-number" id="total-clientes-inativos">0</p>
+                                <h3>Novos clientes (período)</h3>
+                                <p class="stat-number" id="stat-novos-clientes">0</p>
+                                <p class="stat-trend" id="trend-novos-clientes">—</p>
                             </div>
                         </div>
                     </div>
@@ -195,11 +199,11 @@
                         </div>
                     </div>
                     <div class="card">
-                        <h3>Atendimentos por mês</h3>
+                        <h3>Receita ao longo do período</h3>
                         <canvas id="grafico-atendimentos" height="80"></canvas>
                     </div>
                     <div class="card">
-                        <h3>Novos clientes por mês</h3>
+                        <h3>Novos clientes ao longo do período</h3>
                         <canvas id="grafico-clientes" height="80"></canvas>
                     </div>
                 </section>

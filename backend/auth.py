@@ -15,10 +15,15 @@ logger = logging.getLogger("clientflow.auth")
 environment = os.getenv("ENVIRONMENT", "development").lower()
 SECRET_KEY = os.getenv("JWT_SECRET_KEY") or os.getenv("SECRET_KEY") or ""
 if not SECRET_KEY:
-    if environment == "production":
-        raise RuntimeError("SECRET_KEY must be set in production")
+    # Do not crash the service at import time; Railway will restart-loop and produce 502.
+    # Generate an ephemeral key so the API can start, but log loudly so it gets fixed.
     SECRET_KEY = os.getenv("SECRET_KEY_RUNTIME", "") or os.urandom(32).hex()
-    logger.warning("SECRET_KEY not set; generated a temporary key for development")
+    if environment == "production":
+        logger.error(
+            "SECRET_KEY/JWT_SECRET_KEY is missing in production. Generated an ephemeral key; sessions will break on restart."
+        )
+    else:
+        logger.warning("SECRET_KEY not set; generated a temporary key for development")
 
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))

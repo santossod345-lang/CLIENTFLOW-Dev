@@ -434,6 +434,44 @@ body {
     padding: 20px 30px;
 }
 
+.top-bar-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.period-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-tertiary);
+}
+
+.period-btn {
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.2s, color 0.2s;
+}
+
+.period-btn:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.period-btn.active {
+    background: var(--primary-color);
+    color: #fff;
+}
+
 .top-bar h1 {
     font-size: 1.8rem;
     color: var(--text-primary);
@@ -462,6 +500,11 @@ body {
     padding: 25px;
     margin-bottom: 25px;
     box-shadow: var(--shadow);
+}
+
+.card canvas {
+    width: 100% !important;
+    height: 260px !important;
 }
 
 .card h3 {
@@ -523,6 +566,20 @@ body {
     font-size: 2.5rem;
     font-weight: 700;
     color: var(--primary-color);
+}
+
+.stat-trend {
+    margin-top: 6px;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.stat-trend.positive {
+    color: var(--success-color);
+}
+
+.stat-trend.negative {
+    color: var(--error-color);
 }
 
 /* ========== LISTAS ========== */

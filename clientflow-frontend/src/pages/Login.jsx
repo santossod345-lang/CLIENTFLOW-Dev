@@ -11,21 +11,26 @@ function Login() {
   const { setAuth } = useContext(AuthContext)
   const navigate = useNavigate()
 
-  const apiUrl = import.meta.env.VITE_API_URL
+  const rawApiUrl = import.meta.env.VITE_API_URL
+  const apiBase = rawApiUrl
+    ? rawApiUrl.replace(/\/$/, '').endsWith('/api')
+      ? rawApiUrl.replace(/\/$/, '')
+      : `${rawApiUrl.replace(/\/$/, '')}/api`
+    : ''
 
   const handleLogin = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError('')
 
-    if (!apiUrl) {
+    if (!apiBase) {
       setError('VITE_API_URL nao configurada')
       setLoading(false)
       return
     }
 
     try {
-      const response = await axios.post(`${apiUrl}/empresas/login`, {
+      const response = await axios.post(`${apiBase}/empresas/login`, {
         email_login: email,
         senha: password
       })

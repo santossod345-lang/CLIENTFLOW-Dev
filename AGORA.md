@@ -143,7 +143,7 @@ ClientFlow está em **PRODUÇÃO** 🚀
 ---
 
 ### 💡 Dica:
-Se vir erro "Connection refused", significa que Vercel ainda está esperando Railway ficar online. **Aguarde 3 minutos** e recarregue.
+Se vir error "Connection refused", significa que Vercel ainda está esperando Railway ficar online. **Aguarde 3 minutos** e recarregue.
 
 ---
 

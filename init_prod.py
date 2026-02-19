@@ -19,6 +19,9 @@ def get_database_url():
     if not db_url:
         logger.error("DATABASE_URL environment variable not set")
         return None
+    # Normalize for SQLAlchemy (some providers still expose postgres://)
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql+psycopg2://", 1)
     return db_url
 
 def validate_database_connection(db_url, max_retries=5):

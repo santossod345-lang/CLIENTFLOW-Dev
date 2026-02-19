@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from backend.schemas import ClienteCreate, ClienteOut
 from backend import models, database
 from backend.dependencies import require_authenticated_empresa
+from backend.plan_limits import check_plan_limits
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -27,6 +28,9 @@ def criar_cliente(
     ).first()
     if existente:
         raise HTTPException(status_code=400, detail="Cliente já cadastrado com este telefone.")
+
+    check_plan_limits(empresa, "clientes", db=db)
+
     novo_cliente = models.Cliente(
         empresa_id=empresa.id,
         nome=cliente.nome,
