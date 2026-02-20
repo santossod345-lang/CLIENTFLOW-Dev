@@ -34,7 +34,6 @@ COPY backend/ ./backend/
 COPY alembic/ ./alembic/
 COPY alembic.ini ./
 COPY init_prod.py ./
-COPY generate_secrets.py ./
 COPY --from=frontend-build /build/clientflow-frontend/dist ./clientflow-frontend/dist
 
 # Create upload directories
