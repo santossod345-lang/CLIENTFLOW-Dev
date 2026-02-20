@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
-
 import {
   Chart as ChartJS,
+  ArcElement,
   CategoryScale,
   LinearScale,
   PointElement,
@@ -11,126 +11,103 @@ import {
   Legend,
   Filler
 } from 'chart.js'
-import { Line } from 'react-chartjs-2'
+import { Doughnut, Line } from 'react-chartjs-2'
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler)
+ChartJS.register(
+  ArcElement,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Legend,
+  Filler
+)
 
 const PERIOD_OPTIONS = [
   { key: 'today', label: 'Hoje' },
-  { key: '7d', label: '7 dias' },
-  { key: '30d', label: '30 dias' },
-  { key: 'month', label: 'Mês' }
+  { key: '7d', label: 'Semana' },
+  { key: '30d', label: 'Mes' },
+  { key: 'month', label: 'Mes atual' }
 ]
 
-const formatCurrencyBRL = (value) => {
-  const numberValue = Number(value) || 0
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(numberValue)
+const SIDEBAR_MENU = [
+  { label: 'Dashboard', icon: '▣', active: true },
+  { label: 'CRM', icon: '◈' },
+  { label: 'Atendimentos', icon: '◎' },
+  { label: 'Financeiro', icon: '◉' },
+  { label: 'Relatorios', icon: '◍' },
+  { label: 'WhatsApp', icon: '◌' },
+  { label: 'Agenda', icon: '◔' },
+  { label: 'Marketing', icon: '◐' },
+  { label: 'Configuracoes', icon: '⚙' }
+]
+
+const BOTTOM_HEALTH = [
+  { label: 'Microsservicos', value: '5/5' },
+  { label: 'Backup', value: '100%' },
+  { label: 'SSL', value: 'Seguro' },
+  { label: 'API', value: '99.3%' },
+  { label: 'Tempo real', value: 'Ativo' }
+]
+
+const STATUS_COLOR = {
+  novo: 'status-new',
+  pendente: 'status-pending',
+  'em andamento': 'status-progress',
+  concluido: 'status-done',
+  entregue: 'status-delivered'
 }
 
-const formatPercentOneDecimal = (value) => {
-  const numberValue = Number(value) || 0
-  return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(numberValue)
+const numberBR = (value) => new Intl.NumberFormat('pt-BR').format(Number(value) || 0)
+const moneyBR = (value) =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0)
+
+const pctFormat = (value) =>
+  `${new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(
+    Number(value) || 0
+  )}%`
+
+const safeDate = (value) => {
+  const dt = value ? new Date(value) : null
+  if (!dt || Number.isNaN(dt.getTime())) return '--:--'
+  return dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
 
-const formatDateShort = (isoDate) => {
-  if (!isoDate) return ''
-  const dt = new Date(isoDate)
-  if (Number.isNaN(dt.getTime())) return String(isoDate)
-  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(dt)
+const safeDateShort = (value) => {
+  const dt = value ? new Date(value) : null
+  if (!dt || Number.isNaN(dt.getTime())) return '--/--'
+  return dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
 }
 
-const formatDateLong = (isoDate) => {
-  if (!isoDate) return ''
-  const dt = new Date(isoDate)
-  if (Number.isNaN(dt.getTime())) return String(isoDate)
-  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(dt)
-}
-
-const hexToRgba = (hex, alpha) => {
-  const raw = String(hex || '').trim().replace('#', '')
-  if (raw.length !== 6) return `rgba(102,126,234,${alpha})`
-  const r = parseInt(raw.slice(0, 2), 16)
-  const g = parseInt(raw.slice(2, 4), 16)
-  const b = parseInt(raw.slice(4, 6), 16)
-  return `rgba(${r},${g},${b},${alpha})`
-}
-
-const getThemeColors = () => {
-  if (typeof window === 'undefined' || typeof document === 'undefined') {
-    return { primary: '#667eea', secondary: '#764ba2' }
-  }
-  const styles = getComputedStyle(document.documentElement)
-  const primary = (styles.getPropertyValue('--color-primary') || '#667eea').trim()
-  const secondary = (styles.getPropertyValue('--color-secondary') || '#764ba2').trim()
-  return { primary, secondary }
-}
-
-function StatCard({ title, value, percentage }) {
-  const pct = Number(percentage) || 0
-
-  const variant = pct > 0 ? 'up' : pct < 0 ? 'down' : 'neutral'
-  const badgeClass =
-    variant === 'up'
-      ? 'bg-green-100 text-green-700'
-      : variant === 'down'
-        ? 'bg-red-100 text-red-700'
-        : 'bg-gray-100 text-gray-700'
-
-  const badgeText =
-    variant === 'up'
-      ? `↑ ${formatPercentOneDecimal(pct)}% vs período anterior`
-      : variant === 'down'
-        ? `↓ ${formatPercentOneDecimal(Math.abs(pct))}% vs período anterior`
-        : `${formatPercentOneDecimal(0)}% vs período anterior`
-
+function KpiCard({ title, value, delta, tone = 'blue', subtitle }) {
   return (
-    <div className="bg-white rounded-lg shadow p-6 flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-4">
-        <h3 className="text-gray-500 text-sm font-medium">{title}</h3>
-        <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${badgeClass}`}
-        >
-          {badgeText}
-        </span>
-      </div>
-      <p className="text-3xl font-bold text-dark">{value}</p>
-    </div>
+    <article className={`cf-panel kpi-card kpi-${tone}`}>
+      <header className="kpi-head">
+        <span className="kpi-title">{title}</span>
+        <span className="kpi-delta">{delta}</span>
+      </header>
+      <p className="kpi-value">{value}</p>
+      {subtitle ? <p className="kpi-subtitle">{subtitle}</p> : null}
+    </article>
   )
 }
 
-function SkeletonCard() {
-  return (
-    <div className="bg-white rounded-lg shadow p-6 animate-pulse">
-      <div className="flex items-start justify-between gap-4">
-        <div className="h-4 w-32 bg-gray-200 rounded" />
-        <div className="h-6 w-44 bg-gray-200 rounded-full" />
-      </div>
-      <div className="mt-4 h-8 w-40 bg-gray-200 rounded" />
-    </div>
-  )
-}
-
-function SkeletonChart({ title }) {
-  return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="h-5 w-40 bg-gray-200 rounded animate-pulse" />
-      <div className="mt-4 h-72 bg-gray-100 rounded animate-pulse" />
-      <div className="sr-only">{title}</div>
-    </div>
-  )
+function StatusBadge({ value }) {
+  const normalized = String(value || 'pendente').toLowerCase().trim()
+  const cls = STATUS_COLOR[normalized] || 'status-pending'
+  return <span className={`status-pill ${cls}`}>{normalized}</span>
 }
 
 function Dashboard() {
   const [period, setPeriod] = useState('30d')
-
-  const [empresa, setEmpresa] = useState(null)
-
-  const [dashboardData, setDashboardData] = useState(null)
-  const [dashboardLoading, setDashboardLoading] = useState(true)
-
-  const [analytics, setAnalytics] = useState(null)
-  const [analyticsLoading, setAnalyticsLoading] = useState(true)
-
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [empresa, setEmpresa] = useState(null)
+  const [analytics, setAnalytics] = useState(null)
+  const [dashboardData, setDashboardData] = useState(null)
+  const [atendimentos, setAtendimentos] = useState([])
+  const [clientes, setClientes] = useState([])
 
   const rawApiUrl = import.meta.env.VITE_API_URL
   const apiBase = rawApiUrl
@@ -140,68 +117,47 @@ function Dashboard() {
     : ''
   const token = localStorage.getItem('access_token')
 
-  const themeColors = useMemo(() => getThemeColors(), [])
-
-  const fetchDashboard = useCallback(async () => {
-    try {
-      setError('')
-      setDashboardLoading(true)
-      const response = await axios.get(`${apiBase}/dashboard`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      setDashboardData(response.data)
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Erro ao carregar dashboard')
-    } finally {
-      setDashboardLoading(false)
-    }
-  }, [apiBase, token])
-
-  const fetchEmpresa = useCallback(async () => {
-    try {
-      const response = await axios.get(`${apiBase}/empresas/me`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      setEmpresa(response.data)
-    } catch {
-      // Ignore errors here; main flows already handle auth redirects.
-    }
-  }, [apiBase, token])
-
-  const fetchAnalytics = useCallback(
-    async (periodKey) => {
-      try {
-        setError('')
-        setAnalyticsLoading(true)
-        const response = await axios.get(`${apiBase}/dashboard/analytics`, {
-          params: { period: periodKey },
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        setAnalytics(response.data)
-      } catch (err) {
-        setError(err.response?.data?.detail || 'Erro ao carregar analytics')
-      } finally {
-        setAnalyticsLoading(false)
-      }
-    },
-    [apiBase, token]
+  const authHeaders = useMemo(
+    () => ({
+      Authorization: `Bearer ${token}`
+    }),
+    [token]
   )
 
-  useEffect(() => {
+  const fetchData = useCallback(async () => {
     if (!apiBase) {
       setError('VITE_API_URL nao configurada')
-      setDashboardLoading(false)
-      setAnalyticsLoading(false)
+      setLoading(false)
       return
     }
-    fetchDashboard()
-    fetchEmpresa()
-  }, [apiBase, fetchDashboard, fetchEmpresa])
+
+    try {
+      setLoading(true)
+      setError('')
+
+      const [empresaResp, analyticsResp, dashboardResp, atendimentosResp, clientesResp] = await Promise.all([
+        axios.get(`${apiBase}/empresas/me`, { headers: authHeaders }),
+        axios.get(`${apiBase}/dashboard/analytics`, { params: { period }, headers: authHeaders }),
+        axios.get(`${apiBase}/dashboard`, { params: { period }, headers: authHeaders }),
+        axios.get(`${apiBase}/atendimentos`, { headers: authHeaders }),
+        axios.get(`${apiBase}/clientes`, { headers: authHeaders })
+      ])
+
+      setEmpresa(empresaResp.data)
+      setAnalytics(analyticsResp.data)
+      setDashboardData(dashboardResp.data)
+      setAtendimentos(Array.isArray(atendimentosResp.data) ? atendimentosResp.data : [])
+      setClientes(Array.isArray(clientesResp.data) ? clientesResp.data : [])
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Falha ao carregar dashboard')
+    } finally {
+      setLoading(false)
+    }
+  }, [apiBase, authHeaders, period])
 
   useEffect(() => {
-    if (!apiBase) return
-    fetchAnalytics(period)
-  }, [apiBase, fetchAnalytics, period])
+    fetchData()
+  }, [fetchData])
 
   const handleLogout = () => {
     localStorage.removeItem('access_token')
@@ -214,286 +170,315 @@ function Dashboard() {
   const appointmentsMetric = analytics?.metrics?.appointments
 
   const revenueSeries = analytics?.revenue_series || []
-  const clientsSeries = analytics?.clients_series || []
+  const revenueChartData = useMemo(
+    () => ({
+      labels: revenueSeries.map((item) => safeDateShort(item.date)),
+      datasets: [
+        {
+          data: revenueSeries.map((item) => Number(item.value) || 0),
+          borderColor: '#35b9ff',
+          borderWidth: 2.5,
+          tension: 0.35,
+          fill: true,
+          backgroundColor: 'rgba(53, 185, 255, 0.12)',
+          pointRadius: 1.8,
+          pointHoverRadius: 4
+        }
+      ]
+    }),
+    [revenueSeries]
+  )
 
-  const revenueDates = useMemo(() => revenueSeries.map((p) => p.date), [revenueSeries])
-  const revenueLabels = useMemo(() => revenueSeries.map((p) => formatDateShort(p.date)), [revenueSeries])
-  const revenueValues = useMemo(() => revenueSeries.map((p) => Number(p.value) || 0), [revenueSeries])
-
-  const clientsDates = useMemo(() => clientsSeries.map((p) => p.date), [clientsSeries])
-  const clientsLabels = useMemo(() => clientsSeries.map((p) => formatDateShort(p.date)), [clientsSeries])
-  const clientsValues = useMemo(() => clientsSeries.map((p) => Number(p.value) || 0), [clientsSeries])
-
-  const commonLineOptions = useMemo(
+  const revenueChartOptions = useMemo(
     () => ({
       responsive: true,
       maintainAspectRatio: false,
-      animation: false,
       plugins: {
         legend: { display: false },
         tooltip: {
-          intersect: false,
-          mode: 'index'
+          backgroundColor: '#060d1f',
+          borderColor: '#1f3a7a',
+          borderWidth: 1,
+          callbacks: {
+            label: (item) => ` ${moneyBR(item.parsed.y)}`
+          }
         }
       },
-      interaction: { intersect: false, mode: 'index' },
       scales: {
-        x: {
-          grid: { display: false },
-          ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }
-        },
-        y: {
-          grid: { color: 'rgba(0,0,0,0.06)' },
-          ticks: { precision: 0 }
-        }
-      },
-      elements: {
-        line: { tension: 0.35 },
-        point: { radius: 0, hitRadius: 10, hoverRadius: 4 }
+        x: { grid: { color: 'rgba(80, 116, 200, 0.12)' }, ticks: { color: '#9eb5df' } },
+        y: { grid: { color: 'rgba(80, 116, 200, 0.12)' }, ticks: { color: '#9eb5df' } }
       }
     }),
     []
   )
 
-  const revenueChartData = useMemo(
+  const statusBuckets = useMemo(() => {
+    const base = { pendente: 0, 'em andamento': 0, concluido: 0, entregue: 0 }
+    atendimentos.forEach((item) => {
+      const key = String(item?.status_atendimento || 'pendente').toLowerCase().trim()
+      if (base[key] === undefined) base[key] = 0
+      base[key] += 1
+    })
+    return base
+  }, [atendimentos])
+
+  const statusChartData = useMemo(
     () => ({
-      labels: revenueLabels,
+      labels: ['Pendente', 'Em andamento', 'Concluido', 'Entregue'],
       datasets: [
         {
-          label: 'Receita',
-          data: revenueValues,
-          borderColor: themeColors.primary,
-          backgroundColor: hexToRgba(themeColors.primary, 0.12),
-          borderWidth: 2,
-          fill: false
+          data: [
+            statusBuckets.pendente,
+            statusBuckets['em andamento'],
+            statusBuckets.concluido,
+            statusBuckets.entregue
+          ],
+          borderWidth: 0,
+          backgroundColor: ['#ff5b6d', '#ffc14d', '#33d890', '#39a3ff']
         }
       ]
     }),
-    [revenueLabels, revenueValues, themeColors.primary]
+    [statusBuckets]
   )
 
-  const revenueChartOptions = useMemo(
+  const statusChartOptions = useMemo(
     () => ({
-      ...commonLineOptions,
-      plugins: {
-        ...commonLineOptions.plugins,
-        tooltip: {
-          ...commonLineOptions.plugins.tooltip,
-          callbacks: {
-            title: (items) => {
-              const idx = items?.[0]?.dataIndex ?? 0
-              return formatDateLong(revenueDates[idx])
-            },
-            label: (item) => formatCurrencyBRL(item.parsed.y)
-          }
-        }
-      },
-      scales: {
-        ...commonLineOptions.scales,
-        y: {
-          ...commonLineOptions.scales.y,
-          ticks: {
-            callback: (v) => formatCurrencyBRL(v)
-          }
-        }
-      }
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '70%',
+      plugins: { legend: { display: false } }
     }),
-    [commonLineOptions, revenueDates]
+    []
   )
 
-  const clientsChartData = useMemo(
-    () => ({
-      labels: clientsLabels,
-      datasets: [
-        {
-          label: 'Clientes',
-          data: clientsValues,
-          borderColor: themeColors.secondary,
-          backgroundColor: hexToRgba(themeColors.secondary, 0.12),
-          borderWidth: 2,
-          fill: true
-        }
-      ]
-    }),
-    [clientsLabels, clientsValues, themeColors.secondary]
-  )
+  const agenda = useMemo(() => {
+    return [...atendimentos]
+      .sort((a, b) => new Date(a.data_atendimento) - new Date(b.data_atendimento))
+      .slice(0, 5)
+  }, [atendimentos])
 
-  const clientsChartOptions = useMemo(
-    () => ({
-      ...commonLineOptions,
-      plugins: {
-        ...commonLineOptions.plugins,
-        tooltip: {
-          ...commonLineOptions.plugins.tooltip,
-          callbacks: {
-            title: (items) => {
-              const idx = items?.[0]?.dataIndex ?? 0
-              return formatDateLong(clientsDates[idx])
-            },
-            label: (item) => `${item.parsed.y} clientes`
-          }
-        }
-      }
-    }),
-    [clientsDates, commonLineOptions]
-  )
+  const activeAppointment = useMemo(() => {
+    return (
+      atendimentos.find((item) => String(item.status_atendimento || '').toLowerCase().includes('andamento')) ||
+      agenda[0]
+    )
+  }, [agenda, atendimentos])
+
+  const clientesRecentes = useMemo(() => clientes.slice(0, 6), [clientes])
+  const topClientes = dashboardData?.top_clientes || []
+
+  const isOperational = !error
 
   return (
-    <div className="min-h-screen bg-light">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-6 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-primary">ClientFlow</h1>
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
-              {String(empresa?.plano_empresa || 'free').trim().toUpperCase()}
-            </span>
+    <div className="cf-shell">
+      <aside className="cf-sidebar">
+        <div className="cf-brand">
+          <span className="brand-logo">◈</span>
+          <div>
+            <h1>ClientFlow</h1>
+            <p>SaaS Intelligence Platform</p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
-          >
-            Logout
+        </div>
+
+        <nav>
+          {SIDEBAR_MENU.map((item) => (
+            <button key={item.label} type="button" className={`menu-item ${item.active ? 'active' : ''}`}>
+              <span>{item.icon}</span>
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <div className="sidebar-foot">
+          <button type="button" className="menu-item">
+            <span>◑</span>
+            <span>Suporte</span>
+          </button>
+          <button type="button" className="menu-item">
+            <span>◒</span>
+            <span>Documentacao</span>
           </button>
         </div>
-      </header>
+      </aside>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
+      <div className="cf-main">
+        <header className="cf-topbar cf-panel">
+          <div className="topbar-search">
+            <input type="text" placeholder="Buscar clientes, atendimentos..." />
           </div>
-        )}
+          <div className="topbar-actions">
+            <span className="plan-chip">
+              Plano {String(empresa?.plano_empresa || 'pro').trim().toUpperCase()}
+            </span>
+            <button type="button" className="icon-btn" onClick={fetchData}>
+              ↻
+            </button>
+            <button type="button" className="icon-btn" onClick={handleLogout}>
+              ⎋
+            </button>
+          </div>
+        </header>
 
-        {/* Global Period Filter */}
-        <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold text-dark">Dashboard</h2>
-              <p className="text-sm text-gray-500">Insights do período selecionado</p>
-            </div>
-            <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1 w-full sm:w-auto">
-              {PERIOD_OPTIONS.map((opt) => {
-                const isActive = opt.key === period
-                return (
+        {error ? <div className="cf-error">{error}</div> : null}
+
+        <section className="kpi-grid">
+          <KpiCard
+            title="Clientes ativos"
+            value={numberBR(dashboardData?.estatisticas?.total_clientes_ativos)}
+            delta={pctFormat(clientsMetric?.percentage)}
+            tone="blue"
+            subtitle={`${numberBR(clientes.length)} cadastrados`}
+          />
+          <KpiCard
+            title="Atendimentos hoje"
+            value={numberBR(appointmentsMetric?.current)}
+            delta={pctFormat(appointmentsMetric?.percentage)}
+            tone="amber"
+            subtitle={`${numberBR(dashboardData?.estatisticas?.total_atendimentos)} no total`}
+          />
+          <KpiCard
+            title="Faturamento"
+            value={moneyBR(revenueMetric?.current)}
+            delta={pctFormat(revenueMetric?.percentage)}
+            tone="green"
+            subtitle="Periodo selecionado"
+          />
+          <KpiCard
+            title="Status do sistema"
+            value={isOperational ? '100% operacional' : 'Instavel'}
+            delta={isOperational ? 'Online' : 'Alerta'}
+            tone={isOperational ? 'cyan' : 'amber'}
+            subtitle={loading ? 'Sincronizando...' : 'Atualizado'}
+          />
+        </section>
+
+        <section className="workspace-grid">
+          <article className="cf-panel panel-lg">
+            <header className="panel-header">
+              <h2>Evolucao de atendimentos</h2>
+              <div className="period-switch">
+                {PERIOD_OPTIONS.map((item) => (
                   <button
-                    key={opt.key}
+                    key={item.key}
                     type="button"
-                    onClick={() => setPeriod(opt.key)}
-                    className={
-                      `px-4 py-2 text-sm font-medium rounded-md transition ` +
-                      (isActive
-                        ? 'bg-primary text-white'
-                        : 'text-gray-700 hover:bg-white')
-                    }
-                    aria-pressed={isActive}
+                    className={period === item.key ? 'active' : ''}
+                    onClick={() => setPeriod(item.key)}
                   >
-                    {opt.label}
+                    {item.label}
                   </button>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Premium KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {analyticsLoading ? (
-            <>
-              <SkeletonCard />
-              <SkeletonCard />
-              <SkeletonCard />
-            </>
-          ) : (
-            <>
-              <StatCard
-                title="Receita"
-                value={formatCurrencyBRL(revenueMetric?.current)}
-                percentage={revenueMetric?.percentage}
-              />
-              <StatCard
-                title="Novos Clientes"
-                value={new Intl.NumberFormat('pt-BR').format(Number(clientsMetric?.current) || 0)}
-                percentage={clientsMetric?.percentage}
-              />
-              <StatCard
-                title="Atendimentos"
-                value={new Intl.NumberFormat('pt-BR').format(Number(appointmentsMetric?.current) || 0)}
-                percentage={appointmentsMetric?.percentage}
-              />
-            </>
-          )}
-        </div>
-
-        {/* Charts */}
-        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {analyticsLoading ? (
-            <>
-              <SkeletonChart title="Receita" />
-              <SkeletonChart title="Clientes" />
-            </>
-          ) : (
-            <>
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-gray-700 text-sm font-semibold mb-4">Receita</h3>
-                <div className="h-72">
-                  <Line data={revenueChartData} options={revenueChartOptions} />
-                </div>
+                ))}
               </div>
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-gray-700 text-sm font-semibold mb-4">Clientes</h3>
-                <div className="h-72">
-                  <Line data={clientsChartData} options={clientsChartOptions} />
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Recently Updated */}
-        {!dashboardLoading && dashboardData?.ultimos_atendimentos && dashboardData.ultimos_atendimentos.length > 0 && (
-          <div className="mt-8 bg-white rounded-lg shadow overflow-hidden">
-            <div className="px-6 py-4 bg-gray-50 border-b">
-              <h2 className="text-lg font-semibold text-dark">Últimos Atendimentos</h2>
+            </header>
+            <div className="chart-lg">
+              <Line data={revenueChartData} options={revenueChartOptions} />
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
+          </article>
+
+          <article className="cf-panel panel-md">
+            <header className="panel-header">
+              <h2>Agenda de hoje</h2>
+              <button type="button" className="solid-btn">+ Novo</button>
+            </header>
+            <ul className="agenda-list">
+              {agenda.length === 0 ? <li className="agenda-empty">Sem atendimentos no periodo.</li> : null}
+              {agenda.map((item) => (
+                <li key={item.id}>
+                  <div>
+                    <p>{safeDate(item.data_atendimento)} · {item.tipo_servico || 'Servico'}</p>
+                    <small>{item.cliente_id ? `Cliente #${item.cliente_id}` : 'Cliente nao informado'}</small>
+                  </div>
+                  <StatusBadge value={item.status_atendimento} />
+                </li>
+              ))}
+            </ul>
+          </article>
+
+          <article className="cf-panel panel-sm">
+            <h2>Cliente em atendimento</h2>
+            <div className="active-client">
+              <strong>{activeAppointment?.tipo_servico || 'Sem atendimento ativo'}</strong>
+              <p>Cliente #{activeAppointment?.cliente_id || '--'}</p>
+              <p>Horario {safeDate(activeAppointment?.data_atendimento)}</p>
+              <button type="button" className="solid-btn block">Finalizar atendimento</button>
+            </div>
+          </article>
+
+          <article className="cf-panel panel-sm">
+            <h2>Fluxo de vendas</h2>
+            <ul className="funnel-list">
+              <li><span>Leads</span><strong>{numberBR(clientes.length)}</strong></li>
+              <li><span>Orcamentos</span><strong>{numberBR(statusBuckets.pendente + statusBuckets['em andamento'])}</strong></li>
+              <li><span>Aprovados</span><strong>{numberBR(statusBuckets.concluido)}</strong></li>
+              <li><span>Entregues</span><strong>{numberBR(statusBuckets.entregue)}</strong></li>
+            </ul>
+          </article>
+
+          <article className="cf-panel panel-sm">
+            <h2>Atendimentos por status</h2>
+            <div className="chart-sm">
+              <Doughnut data={statusChartData} options={statusChartOptions} />
+            </div>
+            <ul className="status-legend">
+              {Object.entries(statusBuckets).map(([key, value]) => (
+                <li key={key}><span>{key}</span><strong>{numberBR(value)}</strong></li>
+              ))}
+            </ul>
+          </article>
+
+          <article className="cf-panel panel-md">
+            <header className="panel-header">
+              <h2>Clientes recentes</h2>
+              <button type="button" className="ghost-btn">Ver todos</button>
+            </header>
+            <div className="table-wrap">
+              <table>
+                <thead>
                   <tr>
-                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Cliente</th>
-                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Status</th>
-                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-700">Data</th>
+                    <th>Cliente</th>
+                    <th>Contato</th>
+                    <th>Status</th>
+                    <th>Valor</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
-                  {dashboardData.ultimos_atendimentos.map((atendimento, idx) => (
-                    <tr key={idx} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm text-gray-700">
-                        {atendimento.cliente_nome || 'N/A'}
+                <tbody>
+                  {clientesRecentes.map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.nome}</td>
+                      <td>{item.telefone || '-'}</td>
+                      <td>
+                        <StatusBadge value={item.status_cliente || 'novo'} />
                       </td>
-                      <td className="px-6 py-4 text-sm">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-medium ${
-                            atendimento.status === 'concluido'
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-yellow-100 text-yellow-700'
-                          }`}
-                        >
-                          {atendimento.status || 'pendente'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {new Date(atendimento.data_atendimento || atendimento.data_criacao).toLocaleDateString()}
-                      </td>
+                      <td>{moneyBR((item.score_atividade || 0) * 15)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </div>
-        )}
-      </main>
+          </article>
+
+          <article className="cf-panel panel-sm">
+            <h2>Top clientes</h2>
+            <ul className="top-client-list">
+              {topClientes.length === 0 ? <li>Sem dados do periodo</li> : null}
+              {topClientes.map((item) => (
+                <li key={item.id}>
+                  <span>{item.nome}</span>
+                  <strong>{numberBR(item.total_atendimentos)}</strong>
+                </li>
+              ))}
+            </ul>
+          </article>
+        </section>
+
+        <footer className="cf-footer cf-panel">
+          {BOTTOM_HEALTH.map((item) => (
+            <div key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+            </div>
+          ))}
+        </footer>
+      </div>
     </div>
   )
 }
