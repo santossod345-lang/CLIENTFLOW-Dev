@@ -281,6 +281,13 @@ frontend_dist = Path("clientflow-frontend/dist")
 if serve_frontend and frontend_dist.exists():
     app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
 
+
+# ===== READINESS ENDPOINT FOR RAILWAY HEALTH CHECKS =====
+@app.get("/ready")
+def readiness():
+    """Kubernetes/Railway-style readiness probe (no DB check)"""
+    return {"ready": True, "timestamp": datetime.now().isoformat()}
+
 # Middleware para injetar empresa_id do JWT
 @app.middleware("http")
 async def inject_empresa_id_jwt(request: Request, call_next):
