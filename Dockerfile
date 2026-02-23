@@ -1,7 +1,7 @@
-# Railway sync marker: 2026-02-23-deploy-96eab76
-# Build Date: 2026-02-23T05:47:00Z
-# Force rebuild: CACHEBUST=2026-02-23T05:47:00Z-PROCFILE-TEST
-ARG CACHEBUST=2026-02-23T05:47:00Z-PROCFILE-TEST
+# Railway sync marker: 2026-02-23-deploy-007d806
+# Build Date: 2026-02-23T05:48:00Z
+# Force rebuild: CACHEBUST=2026-02-23T05:48:00Z-WITH-CMD
+ARG CACHEBUST=2026-02-23T05:48:00Z-WITH-CMD
 FROM node:18-alpine AS frontend-build
 
 WORKDIR /build
@@ -55,4 +55,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.getenv(\"PORT\",\"8000\")}/ready', timeout=5).read()"
 
 # Procfile will handle startup on Railway; entrypoint.sh is the entry point
-# CMD intentionally omitted to let Railway use Procfile
+# If Procfile not used, fallback CMD starts gunicorn directly
+CMD exec gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 1 --timeout 60 --worker-class uvicorn.workers.UvicornWorker --access-logfile - --error-logfile - backend.main:app
