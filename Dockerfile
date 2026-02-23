@@ -1,5 +1,7 @@
-# Railway sync marker: 2026-02-23-deploy-6fb7190
-# Build Date: 2026-02-23T15:30:00Z
+# Railway sync marker: 2026-02-23-deploy-312a345
+# Build Date: 2026-02-23T05:44:00Z
+# Force rebuild: Force-Timestamp=2026-02-23T05:44:31Z
+ARG CACHEBUST=2026-02-23T05:44:31Z
 FROM node:18-alpine AS frontend-build
 
 WORKDIR /build
