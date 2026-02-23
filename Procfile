@@ -1,1 +1,1 @@
-web: bash entrypoint.sh
+web: python -c "from backend.main import app; print('✓ Imports OK')" && gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 60 --worker-class uvicorn.workers.UvicornWorker --access-logfile - --error-logfile - backend.main:app
