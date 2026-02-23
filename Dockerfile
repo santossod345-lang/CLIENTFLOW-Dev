@@ -54,5 +54,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.getenv(\"PORT\",\"8000\")}/ready', timeout=5).read()"
 
-# Start server with optimized settings (matching Procfile)
-CMD ["/bin/sh", "-c", "exec gunicorn backend.main:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT:-8000} --workers 1 --timeout 60 --access-logfile - --error-logfile -"]
+# Procfile will handle startup on Railway; entrypoint.sh is the entry point
+# CMD intentionally omitted to let Railway use Procfile
