@@ -125,7 +125,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger("clientflow")
 
 # Instância FastAPI
-app = FastAPI(title="ClientFlow API", version="1.0.0")
+# Version includes commit hash for deployment verification (forces Docker cache bust)
+app = FastAPI(title="ClientFlow API", version="1.0.0-ca09e68-deploy-final")
 
 # CORS Configuration
 # - Production: allow ONLY the configured frontend origins via ALLOWED_ORIGINS
