@@ -274,6 +274,13 @@ def _startup_tasks():
         # Only run migrations if explicitly enabled
         # Railway: set RUN_MIGRATIONS_ON_STARTUP=true env var if needed
         _run_startup_migrations_if_needed()
+        if os.getenv("PRINT_ROUTES", "false").lower() in {"1", "true", "yes", "on"}:
+            routes_summary = []
+            for route in app.routes:
+                methods = sorted(getattr(route, "methods", []) or [])
+                methods_label = ",".join(methods) if methods else ""
+                routes_summary.append(f"{route.path} {methods_label}".strip())
+            logger.info("Routes loaded: %s", routes_summary)
         logger.info("✓ Startup completed successfully")
     except Exception as e:
         logger.error(f"✗ Startup failed (non-fatal): {e}")
@@ -285,7 +292,8 @@ def _startup_tasks():
 serve_frontend = os.getenv("SERVE_FRONTEND", "false").lower() == "true"
 frontend_dist = Path("clientflow-frontend/dist")
 if serve_frontend and frontend_dist.exists():
-    app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
+    # Mount under /app to avoid shadowing API routes like /status and /docs
+    app.mount("/app", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
 
 
 # ===== READINESS ENDPOINT FOR RAILWAY HEALTH CHECKS =====
