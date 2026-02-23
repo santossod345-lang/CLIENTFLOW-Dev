@@ -1,7 +1,7 @@
-# Railway sync marker: 2026-02-23-deploy-94f1aea
-# Build Date: 2026-02-23T05:45:00Z
-# Force rebuild: CACHEBUST=2026-02-23T05:45:00Z
-ARG CACHEBUST=2026-02-23T05:45:00Z
+# Railway sync marker: 2026-02-23-deploy-96eab76
+# Build Date: 2026-02-23T05:47:00Z
+# Force rebuild: CACHEBUST=2026-02-23T05:47:00Z-PROCFILE-TEST
+ARG CACHEBUST=2026-02-23T05:47:00Z-PROCFILE-TEST
 FROM node:18-alpine AS frontend-build
 
 WORKDIR /build
