@@ -23,17 +23,20 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1
 
+# Install system dependencies for PostgreSQL
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY main.py ./
-COPY app/ ./app/
 COPY backend/ ./backend/
 COPY alembic/ ./alembic/
 COPY alembic.ini ./
-COPY init_prod.py ./
 COPY --from=frontend-build /build/clientflow-frontend/dist ./clientflow-frontend/dist
 
 # Create upload directories
@@ -42,9 +45,9 @@ RUN mkdir -p /app/uploads/logos
 # Expose port
 EXPOSE 8000
 
-# Health check (no curl/apt-get needed)
+# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.getenv(\"PORT\",\"8000\")}/api/health', timeout=5).read()"
+    CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.getenv(\"PORT\",\"8000\")}/ready', timeout=5).read()"
 
-# Start server
-CMD ["/bin/sh", "-c", "gunicorn backend.main:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT:-8000} --workers 1 --timeout 120 --access-logfile - --error-logfile -"]
+# Start server with optimized settings (matching Procfile)
+CMD ["/bin/sh", "-c", "exec gunicorn backend.main:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT:-8000} --workers 1 --timeout 60 --access-logfile - --error-logfile -"]
