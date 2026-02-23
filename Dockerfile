@@ -1,7 +1,7 @@
-# Railway sync marker: 2026-02-23-deploy-312a345
-# Build Date: 2026-02-23T05:44:00Z
-# Force rebuild: Force-Timestamp=2026-02-23T05:44:31Z
-ARG CACHEBUST=2026-02-23T05:44:31Z
+# Railway sync marker: 2026-02-23-deploy-94f1aea
+# Build Date: 2026-02-23T05:45:00Z
+# Force rebuild: CACHEBUST=2026-02-23T05:45:00Z
+ARG CACHEBUST=2026-02-23T05:45:00Z
 FROM node:18-alpine AS frontend-build
 
 WORKDIR /build
@@ -40,6 +40,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ ./backend/
 COPY alembic/ ./alembic/
 COPY alembic.ini ./
+COPY entrypoint.sh ./
+RUN chmod +x ./entrypoint.sh
 COPY --from=frontend-build /build/clientflow-frontend/dist ./clientflow-frontend/dist
 
 # Create upload directories
