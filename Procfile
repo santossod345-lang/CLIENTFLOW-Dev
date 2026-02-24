@@ -1,1 +1,1 @@
-web: python -c "from backend.main import app; print('✓ App import OK'); print('ℹ Routes:', len(app.routes))" && gunicorn -b 0.0.0.0:8000 -w 1 -t 60 -k uvicorn.workers.UvicornWorker --access-logfile - --error-logfile - backend.main:app
+web: gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 1 --timeout 60 --worker-class uvicorn.workers.UvicornWorker --access-logfile - --error-logfile - backend.main:app
