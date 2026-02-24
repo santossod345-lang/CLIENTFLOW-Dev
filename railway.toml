@@ -3,25 +3,8 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-# Procfile controls startup - no override needed
+startCommand = "gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 1 --timeout 60 --worker-class uvicorn.workers.UvicornWorker --access-logfile - --error-logfile - backend.main:app"
+healthcheckPath = "/ready"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 5
-restartPolicyWindowSeconds = 600
-
-[env]
-PYTHONUNBUFFERED = "1"
-PYTHONDONTWRITEBYTECODE = "1"
-ENVIRONMENT = "production"
-LOG_LEVEL = "info"
-
-[[services]]
-name = "ClientFlow-Backend"
-runtime = "dockerfile"
-processType = "web"
-cpuLimit = "500m"
-memoryLimit = "512Mi"
-
-[[databases]]
-name = "PostgreSQL"
-image = "postgres:15"
-version = "15"
-port = 5432

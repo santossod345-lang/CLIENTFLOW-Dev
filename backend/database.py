@@ -1,7 +1,6 @@
 import os
 from sqlalchemy import create_engine, text
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.orm import declarative_base, sessionmaker, scoped_session
 
 # Configuração via variáveis de ambiente
 # Prioriza DATABASE_URL (Railway/Heroku), senão usa variáveis individuais

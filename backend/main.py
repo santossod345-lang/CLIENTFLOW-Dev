@@ -7,6 +7,7 @@
 import logging
 import os
 import re
+from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI, Request, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -124,14 +125,38 @@ def _build_daily_series(start: datetime, end: datetime):
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 logger = logging.getLogger("clientflow")
 
+# Environment detection (used before app creation for CORS and lifespan)
+environment = os.getenv("ENVIRONMENT", "development").lower().strip()
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    """FastAPI lifespan handler for startup/shutdown tasks."""
+    try:
+        logger.info("Starting up ClientFlow API...")
+        _run_startup_migrations_if_needed()
+        if os.getenv("PRINT_ROUTES", "false").lower() in {"1", "true", "yes", "on"}:
+            routes_summary = []
+            for route in application.routes:
+                methods = sorted(getattr(route, "methods", []) or [])
+                methods_label = ",".join(methods) if methods else ""
+                routes_summary.append(f"{route.path} {methods_label}".strip())
+            logger.info("Routes loaded: %s", routes_summary)
+        logger.info("✓ Startup completed successfully")
+    except Exception as e:
+        logger.error(f"✗ Startup failed (non-fatal): {e}")
+        # Do NOT raise - let app run even if migrations fail
+        # This prevents Railway 502 errors from startup failures
+    yield
+
+
 # Instância FastAPI
 # Version includes commit hash for deployment verification (forces Docker cache bust)
-app = FastAPI(title="ClientFlow API", version="1.0.0-ca09e68-deploy-final")
+app = FastAPI(title="ClientFlow API", version="1.0.0-ca09e68-deploy-final", lifespan=lifespan)
 
 # CORS Configuration
 # - Production: allow ONLY the configured frontend origins via ALLOWED_ORIGINS
 # - Development: allow configured origins + localhost (Vite/React dev servers)
-environment = os.getenv("ENVIRONMENT", "development").lower().strip()
 raw_origins = os.getenv("ALLOWED_ORIGINS", "").strip()
 
 if environment == "production":
@@ -258,35 +283,12 @@ def _run_startup_migrations_if_needed() -> None:
 # Em produção, execute: alembic upgrade head
 # models.Base.metadata.create_all(bind=database.engine)
 
-# ===== REGISTER ALL ROUTERS BEFORE STARTUP EVENT =====
-# This ensures all routes are available when startup event fires
+# ===== REGISTER ALL ROUTERS =====
 app.include_router(empresa.router)
 app.include_router(clientes.router)
 app.include_router(atendimentos.router)
 app.include_router(dashboard.router)
 app.include_router(public.router)
-
-# ===== STARTUP EVENT AFTER ALL ROUTERS =====
-@app.on_event("startup")
-def _startup_tasks():
-    try:
-        logger.info("Starting up ClientFlow API...")
-        # Only run migrations if explicitly enabled
-        # Railway: set RUN_MIGRATIONS_ON_STARTUP=true env var if needed
-        _run_startup_migrations_if_needed()
-        if os.getenv("PRINT_ROUTES", "false").lower() in {"1", "true", "yes", "on"}:
-            routes_summary = []
-            for route in app.routes:
-                methods = sorted(getattr(route, "methods", []) or [])
-                methods_label = ",".join(methods) if methods else ""
-                routes_summary.append(f"{route.path} {methods_label}".strip())
-            logger.info("Routes loaded: %s", routes_summary)
-        logger.info("✓ Startup completed successfully")
-    except Exception as e:
-        logger.error(f"✗ Startup failed (non-fatal): {e}")
-        # Do NOT raise - let app run even if migrations fail
-        # This prevents Railway 502 errors from startup failures
-        pass
 
 # Serve frontend SPA only when explicitly enabled (frontend is typically deployed on Vercel)
 serve_frontend = os.getenv("SERVE_FRONTEND", "false").lower() == "true"
