@@ -134,6 +134,10 @@ async def lifespan(application: FastAPI):
     """FastAPI lifespan handler for startup/shutdown tasks."""
     try:
         logger.info("Starting up ClientFlow API...")
+        # In development with SQLite, auto-create tables (no Alembic needed)
+        if database._is_sqlite:
+            logger.info("SQLite detected — creating tables automatically for development")
+            models.Base.metadata.create_all(bind=database.engine)
         _run_startup_migrations_if_needed()
         if os.getenv("PRINT_ROUTES", "false").lower() in {"1", "true", "yes", "on"}:
             routes_summary = []

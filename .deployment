@@ -1,8 +1,0 @@
-# Railway Deployment Trigger
-# Updated: 2026-02-23
-# Commit: 28fcfb1
-# Action: Force redeploy of latest code
-# Version: 1.0.0-ca09e68-deploy-final
-# Status: All /ready, /status, /docs, /public/health endpoints active
-#
-# This file triggers Railway to detect changes and rebuild container

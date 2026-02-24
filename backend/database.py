@@ -22,33 +22,54 @@ else:
         logging.getLogger("clientflow.db").error(
             "DATABASE_URL is missing in production. Falling back to POSTGRES_* env vars; database connectivity may fail."
         )
-    POSTGRES_USER = os.getenv("POSTGRES_USER", "clientflow")
-    POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "clientflow")
-    POSTGRES_DB = os.getenv("POSTGRES_DB", "clientflow")
-    POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
-    POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
-    SQLALCHEMY_DATABASE_URL = (
-        f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
-    )
+        POSTGRES_USER = os.getenv("POSTGRES_USER", "clientflow")
+        POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "clientflow")
+        POSTGRES_DB = os.getenv("POSTGRES_DB", "clientflow")
+        POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
+        POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
+        SQLALCHEMY_DATABASE_URL = (
+            f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+        )
+    else:
+        # Development: use SQLite if no POSTGRES_* vars are set, so devs can run without PostgreSQL
+        POSTGRES_HOST = os.getenv("POSTGRES_HOST", "")
+        if POSTGRES_HOST:
+            POSTGRES_USER = os.getenv("POSTGRES_USER", "clientflow")
+            POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "clientflow")
+            POSTGRES_DB = os.getenv("POSTGRES_DB", "clientflow")
+            POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
+            SQLALCHEMY_DATABASE_URL = (
+                f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+            )
+        else:
+            # SQLite fallback for local development (no PostgreSQL required)
+            sqlite_path = os.getenv("SQLITE_PATH", "clientflow.db")
+            SQLALCHEMY_DATABASE_URL = f"sqlite:///{sqlite_path}"
 
-# Engine PostgreSQL
-# Nota: pool_pre_ping faz health check antes de usar conexões do pool.
-# Não falha no import - apenas quando tentar usar a conexão.
-# connect_timeout curto evita travar o boot em produção (Railway pode dar 502 se demorar pra bindar PORT).
+# Engine configuration
+# pool_pre_ping faz health check antes de usar conexões do pool.
+# connect_timeout curto evita travar o boot em produção.
+_is_sqlite = (SQLALCHEMY_DATABASE_URL or "").startswith("sqlite")
 connect_args = {}
+engine_kwargs = {"echo": False}
 try:
     if (SQLALCHEMY_DATABASE_URL or "").startswith("postgresql"):
         connect_args = {"connect_timeout": int(os.getenv("DB_CONNECT_TIMEOUT", "5"))}
+        engine_kwargs.update({
+            "pool_pre_ping": True,
+            "pool_size": int(os.getenv("DB_POOL_SIZE", "5")),
+            "max_overflow": int(os.getenv("DB_MAX_OVERFLOW", "10")),
+        })
+    elif _is_sqlite:
+        # SQLite requires check_same_thread=False for multi-threaded FastAPI usage
+        connect_args = {"check_same_thread": False}
 except Exception:
     connect_args = {}
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
-    pool_pre_ping=True,
-    pool_size=int(os.getenv("DB_POOL_SIZE", "5")),
-    max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "10")),
     connect_args=connect_args,
-    echo=False,  # Set to True for SQL query logging
+    **engine_kwargs,
 )
 
 # Session factory (scoped para threads)
@@ -65,15 +86,17 @@ def create_tenant_schema(schema_name: str):
 # Dependência para obter sessão do banco de dados
 def get_db(schema: str = None):
     db = SessionLocal()
-    if schema:
+    dialect = db.bind.dialect.name if db.bind is not None else ""
+    if schema and dialect == "postgresql":
         db.execute(text(f"SET search_path TO {schema}, public"))
     try:
         yield db
     finally:
         # Important for Postgres + connection pooling: avoid leaking tenant search_path
         # across requests when the connection is returned to the pool.
-        try:
-            db.execute(text("RESET search_path"))
-        except Exception:
-            pass
+        if dialect == "postgresql":
+            try:
+                db.execute(text("RESET search_path"))
+            except Exception:
+                pass
         db.close()
