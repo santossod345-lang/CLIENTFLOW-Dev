@@ -134,6 +134,10 @@ async def lifespan(application: FastAPI):
     """FastAPI lifespan handler for startup/shutdown tasks."""
     try:
         logger.info("Starting up ClientFlow API...")
+        # In development with SQLite, auto-create tables (no Alembic needed)
+        if database._is_sqlite:
+            logger.info("SQLite detected — creating tables automatically for development")
+            models.Base.metadata.create_all(bind=database.engine)
         _run_startup_migrations_if_needed()
         if os.getenv("PRINT_ROUTES", "false").lower() in {"1", "true", "yes", "on"}:
             routes_summary = []
@@ -157,22 +161,37 @@ app = FastAPI(title="ClientFlow API", version="1.0.0-ca09e68-deploy-final", life
 # CORS Configuration
 # - Production: allow ONLY the configured frontend origins via ALLOWED_ORIGINS
 # - Development: allow configured origins + localhost (Vite/React dev servers)
+# Architecture: Frontend on Vercel, Backend on Railway.
+# Set ALLOWED_ORIGINS in Railway to your Vercel URL, e.g.:
+#   ALLOWED_ORIGINS=https://clientflow-dev-one.vercel.app
 raw_origins = os.getenv("ALLOWED_ORIGINS", "").strip()
 
 if environment == "production":
     if not raw_origins or raw_origins == "*":
-        # Do not crash the service for missing CORS config; default to the known Vercel domain
-        # so the app can come up and be debugged. Strongly recommend setting ALLOWED_ORIGINS.
         logger.warning(
-            "ALLOWED_ORIGINS is not set (or is '*') in production; using Vercel domain fallback"
+            "ALLOWED_ORIGINS is not set in production; using clientflow-dev-one.vercel.app fallback. "
+            "Set ALLOWED_ORIGINS in Railway environment variables."
         )
-        raw_origins = "https://clientflow-dev-one.vercel.app,https://*.vercel.app"
+        raw_origins = "https://clientflow-dev-one.vercel.app"
 else:
     # In dev, default to common local frontend ports if not specified
     if not raw_origins or raw_origins == "*":
         raw_origins = "http://localhost:3000,http://localhost:5173"
 
-allowed_origins = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
+# Filter out any wildcard entries that look like "https://*.vercel.app" — those are
+# NOT valid CORS origins and will silently block all requests. Use allow_origin_regex instead.
+_literal_origins = []
+_has_vercel_wildcard = False
+for _o in raw_origins.split(","):
+    _o = _o.strip()
+    if not _o:
+        continue
+    if "*" in _o and "vercel.app" in _o:
+        _has_vercel_wildcard = True
+    else:
+        _literal_origins.append(_o)
+
+allowed_origins = _literal_origins
 
 if environment != "production":
     allowed_origins = sorted(
@@ -187,13 +206,24 @@ if environment != "production":
         )
     )
 
+# Allow all Vercel preview URLs (*.vercel.app) via regex — works for pull-request previews
+# This covers both the production Vercel domain and Vercel git-preview deployments.
+# The regex restricts to hyphen-separated alphanumeric subdomains (standard Vercel naming).
+# CORS_VERCEL_REGEX env var can override this if you need stricter matching.
+_vercel_regex = os.getenv(
+    "CORS_VERCEL_REGEX",
+    r"https://[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]\.vercel\.app"
+)
+
 logger.info(f"CORS allowed origins: {allowed_origins}")
+logger.info(f"CORS allow_origin_regex: {_vercel_regex}")
 
 allow_credentials = os.getenv("CORS_ALLOW_CREDENTIALS", "true").lower() == "true"
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
+    allow_origin_regex=_vercel_regex,
     allow_credentials=allow_credentials,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],

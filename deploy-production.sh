@@ -63,5 +63,5 @@ echo ""
 
 echo -e "${GREEN}╔════════════════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║  ✅ Tudo pronto para deploy!                     ║${NC}"
-echo -e "${GREEN}║  Guia completo: DEPLOYMENT_INSTRUCTIONS.md       ║${NC}"
+echo -e "${GREEN}║  Siga as instruções acima para Railway e Vercel. ║${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════════════════╝${NC}\n"

@@ -1,22 +1,5 @@
-# Railway sync marker: 2026-02-23-deploy-007d806
-# Build Date: 2026-02-23T05:48:00Z
-# Force rebuild: CACHEBUST=2026-02-23T05:48:00Z-WITH-CMD
-ARG CACHEBUST=2026-02-23T05:48:00Z-WITH-CMD
-FROM node:18-alpine AS frontend-build
-
-WORKDIR /build
-
-COPY clientflow-frontend/package.json clientflow-frontend/package-lock.json ./clientflow-frontend/
-RUN cd clientflow-frontend && npm ci
-
-COPY clientflow-frontend/ ./clientflow-frontend/
-
-# Use same-origin API by default; VITE_API_URL can be overridden at build time.
-ARG VITE_API_URL=
-ENV VITE_API_URL=$VITE_API_URL
-
-RUN cd clientflow-frontend && npm run build
-
+# ClientFlow Backend — Railway deployment
+# Frontend is deployed separately on Vercel (clientflow-frontend/)
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -42,7 +25,6 @@ COPY alembic/ ./alembic/
 COPY alembic.ini ./
 COPY entrypoint.sh ./
 RUN chmod +x ./entrypoint.sh
-COPY --from=frontend-build /build/clientflow-frontend/dist ./clientflow-frontend/dist
 
 # Create upload directories
 RUN mkdir -p /app/uploads/logos
@@ -54,6 +36,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.getenv(\"PORT\",\"8000\")}/ready', timeout=5).read()"
 
-# Procfile will handle startup on Railway; entrypoint.sh is the entry point
-# If Procfile not used, fallback CMD starts gunicorn directly
 CMD exec gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 1 --timeout 60 --worker-class uvicorn.workers.UvicornWorker --access-logfile - --error-logfile - backend.main:app

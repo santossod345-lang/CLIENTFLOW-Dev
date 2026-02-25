@@ -1,6 +1,5 @@
-# Railway ignore file - forces rebuild
-# Updated: 2026-02-23 commit 73e8c88
-# Triggers redeployment check
+# Railway ignore file — Railway builds the BACKEND only.
+# The frontend (clientflow-frontend/) is deployed separately on Vercel.
 .git
 .gitignore
 *.md
@@ -10,3 +9,11 @@ __pycache__/
 .venv/
 venv/
 *.pyc
+
+# Frontend — deployed on Vercel, not Railway
+clientflow-frontend/
+
+# Local dev artifacts
+*.sqlite
+*.sqlite3
+clientflow.db
