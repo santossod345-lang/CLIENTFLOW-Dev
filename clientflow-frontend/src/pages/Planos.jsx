@@ -10,7 +10,7 @@ function Planos() {
     ? rawApiUrl.replace(/\/$/, '').endsWith('/api')
       ? rawApiUrl.replace(/\/$/, '')
       : `${rawApiUrl.replace(/\/$/, '')}/api`
-    : ''
+    : '/api'
 
   const token = localStorage.getItem('access_token')
 
@@ -30,10 +30,6 @@ function Planos() {
       }
     }
 
-    if (!apiBase) {
-      setError('VITE_API_URL nao configurada')
-      return
-    }
     if (token) run()
     return () => {
       active = false

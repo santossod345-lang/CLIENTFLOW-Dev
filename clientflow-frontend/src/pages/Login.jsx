@@ -16,18 +16,12 @@ function Login() {
     ? rawApiUrl.replace(/\/$/, '').endsWith('/api')
       ? rawApiUrl.replace(/\/$/, '')
       : `${rawApiUrl.replace(/\/$/, '')}/api`
-    : ''
+    : '/api'
 
   const handleLogin = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError('')
-
-    if (!apiBase) {
-      setError('VITE_API_URL nao configurada')
-      setLoading(false)
-      return
-    }
 
     try {
       const response = await axios.post(`${apiBase}/empresas/login`, {

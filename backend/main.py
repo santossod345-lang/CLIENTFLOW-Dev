@@ -554,6 +554,9 @@ def root():
 @app.get("/status")
 def status():
     """Server readiness status. Used by Railway health checks."""
+    commit_sha = os.getenv("GIT_SHA", "unknown")
+    build_time = os.getenv("BUILD_TIME", "unknown")
+    service_env = os.getenv("ENVIRONMENT", "development")
     try:
         from sqlalchemy import text
         with database.engine.connect() as conn:
@@ -561,14 +564,20 @@ def status():
         return {
             "status": "ready",
             "database": "connected",
-            "version": "1.0.0"
+            "version": "1.0.0",
+            "environment": service_env,
+            "commit_sha": commit_sha,
+            "build_time": build_time,
         }
     except Exception as e:
         logger.warning(f"Status check - DB connection issue: {e}")
         return {
             "status": "degraded",
             "database": "unavailable",
-            "version": "1.0.0"
+            "version": "1.0.0",
+            "environment": service_env,
+            "commit_sha": commit_sha,
+            "build_time": build_time,
         }
 
 # Execução local

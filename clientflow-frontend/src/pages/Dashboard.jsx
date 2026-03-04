@@ -114,7 +114,7 @@ function Dashboard() {
     ? rawApiUrl.replace(/\/$/, '').endsWith('/api')
       ? rawApiUrl.replace(/\/$/, '')
       : `${rawApiUrl.replace(/\/$/, '')}/api`
-    : ''
+    : '/api'
   const token = localStorage.getItem('access_token')
 
   const authHeaders = useMemo(
@@ -125,12 +125,6 @@ function Dashboard() {
   )
 
   const fetchData = useCallback(async () => {
-    if (!apiBase) {
-      setError('VITE_API_URL nao configurada')
-      setLoading(false)
-      return
-    }
-
     try {
       setLoading(true)
       setError('')
