@@ -348,15 +348,19 @@ async def inject_empresa_id_jwt(request: Request, call_next):
     auth_header = request.headers.get("authorization")
     if auth_header and auth_header.lower().startswith("bearer "):
         token = auth_header.split()[1]
+        logger.info("Token recebido na requisição: %s... (rota: %s)", token[:20], request.url.path)
         try:
             from backend.auth import jwt, SECRET_KEY, ALGORITHM
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
             empresa_id = payload.get("sub")
             if empresa_id:
                 request.state.empresa_id = empresa_id
+                logger.info("Empresa ID %s extraída do JWT para rota %s", empresa_id, request.url.path)
         except Exception as err:
-            logger.debug(f"JWT parsing failed (expected for public endpoints): {type(err).__name__}")
-            # Do NOT fail - public endpoints don't need JWT
+            logger.info("JWT parsing falhou para rota %s: %s - %s", request.url.path, type(err).__name__, str(err))
+    else:
+        if request.url.path.startswith("/api/") and request.url.path not in ("/api/health", "/api/empresas/login", "/api/empresas/cadastrar"):
+            logger.warning("Requisição sem Authorization header para rota protegida: %s", request.url.path)
     response = await call_next(request)
     return response
 
@@ -423,6 +427,9 @@ def obter_dashboard_analytics(
     - Uses aggregated SQL queries (no N+1)
     - Groups series by day
     """
+    logger.info("Dashboard Analytics requisitado para empresa ID=%s (%s), period=%s", 
+                empresa.id, empresa.nome_empresa, period)
+    
     from sqlalchemy import func, case, cast
     from sqlalchemy.types import Numeric
 

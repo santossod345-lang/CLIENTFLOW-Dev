@@ -26,7 +26,7 @@ if not SECRET_KEY:
         logger.warning("SECRET_KEY not set; generated a temporary key for development")
 
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
 
 
@@ -41,6 +41,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    logger.info("Token JWT criado para sub=%s, expira em %s minutos", to_encode.get("sub"), ACCESS_TOKEN_EXPIRE_MINUTES)
     return encoded_jwt
 def get_current_empresa_jwt(token: str = Depends(oauth2_scheme), db: Session = Depends(database.get_db)) -> models.Empresa:
     """
@@ -52,19 +53,31 @@ def get_current_empresa_jwt(token: str = Depends(oauth2_scheme), db: Session = D
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
+        logger.info("Decodificando JWT... (token: %s...)", token[:20] if token else "VAZIO")
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        logger.info("JWT decodificado com sucesso. sub=%s", payload.get("sub"))
+        
         empresa_id_raw = payload.get("sub")
         try:
             empresa_id = int(empresa_id_raw) if empresa_id_raw is not None else None
         except (TypeError, ValueError):
             empresa_id = None
+        
         if empresa_id is None:
+            logger.warning("JWT válido mas sem 'sub'. Payload: %s", payload)
             raise credentials_exception
-    except JWTError:
+            
+        logger.info("Buscando empresa com ID: %s", empresa_id)
+    except JWTError as e:
+        logger.error("Erro ao decodificar JWT: %s", str(e))
         raise credentials_exception
+    
     empresa = db.query(models.Empresa).filter(models.Empresa.id == empresa_id).first()
     if empresa is None:
+        logger.error("Empresa com ID %s não encontrada no banco de dados", empresa_id)
         raise credentials_exception
+    
+    logger.info("Autenticação bem-sucedida para empresa: %s (ID: %s)", empresa.nome_empresa, empresa.id)
     return empresa
 def decode_access_token(token: str):
     """

@@ -56,6 +56,7 @@ def login_empresa(login: EmpresaLogin, db: Session = Depends(database.get_db)):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Email ou senha incorretos")
         access_token = auth.create_access_token({"sub": empresa.id})
         refresh_token = auth.create_refresh_token(db, empresa.id)
+        logger.info("Login bem-sucedido para empresa ID=%s (%s)", empresa.id, empresa.email_login)
         return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
     except HTTPException:
         raise

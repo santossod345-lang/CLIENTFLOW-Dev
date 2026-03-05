@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useContext, useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
+import AuthContext from '../context/AuthContext'
 
 function Planos() {
   const [empresa, setEmpresa] = useState(null)
   const [error, setError] = useState('')
+  const { token } = useContext(AuthContext)
 
   const rawApiUrl = import.meta.env.VITE_API_URL
   const apiBase = rawApiUrl
@@ -11,8 +13,6 @@ function Planos() {
       ? rawApiUrl.replace(/\/$/, '')
       : `${rawApiUrl.replace(/\/$/, '')}/api`
     : '/api'
-
-  const token = localStorage.getItem('access_token')
 
   useEffect(() => {
     let active = true

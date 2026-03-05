@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import axios from 'axios'
+import api from '../services/api'
 
 function Cadastro() {
   const [nomeEmpresa, setNomeEmpresa] = useState('')
@@ -13,13 +13,6 @@ function Cadastro() {
   const [success, setSuccess] = useState('')
   const navigate = useNavigate()
 
-  const rawApiUrl = import.meta.env.VITE_API_URL
-  const apiBase = rawApiUrl
-    ? rawApiUrl.replace(/\/$/, '').endsWith('/api')
-      ? rawApiUrl.replace(/\/$/, '')
-      : `${rawApiUrl.replace(/\/$/, '')}/api`
-    : '/api'
-
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
@@ -27,7 +20,9 @@ function Cadastro() {
     setSuccess('')
 
     try {
-      await axios.post(`${apiBase}/empresas/cadastrar`, {
+      console.log('[Cadastro] Tentando cadastrar empresa...')
+      
+      await api.post('/empresas/cadastrar', {
         nome_empresa: nomeEmpresa,
         nicho,
         telefone,
@@ -35,9 +30,11 @@ function Cadastro() {
         senha
       })
 
+      console.log('[Cadastro] Cadastro realizado com sucesso!')
       setSuccess('Cadastro realizado com sucesso. Voce ja pode fazer login.')
       setTimeout(() => navigate('/login'), 1200)
     } catch (err) {
+      console.error('[Cadastro] Erro ao cadastrar:', err)
       setError(err.response?.data?.detail || 'Erro ao cadastrar empresa')
     } finally {
       setLoading(false)

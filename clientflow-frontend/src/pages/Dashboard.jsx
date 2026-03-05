@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import axios from 'axios'
+import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import AuthContext from '../context/AuthContext'
+import api from '../services/api'
 import {
   Chart as ChartJS,
   ArcElement,
@@ -32,16 +33,77 @@ const PERIOD_OPTIONS = [
 ]
 
 const SIDEBAR_MENU = [
-  { label: 'Dashboard', icon: '▣', active: true },
-  { label: 'CRM', icon: '◈' },
-  { label: 'Atendimentos', icon: '◎' },
-  { label: 'Financeiro', icon: '◉' },
-  { label: 'Relatorios', icon: '◍' },
-  { label: 'WhatsApp', icon: '◌' },
-  { label: 'Agenda', icon: '◔' },
-  { label: 'Marketing', icon: '◐' },
-  { label: 'Configuracoes', icon: '⚙' }
+  { key: 'dashboard', label: 'Painel', path: '/dashboard', icon: '[ ]' },
+  { key: 'crm', label: 'CRM', path: '/crm', icon: '<>' },
+  { key: 'atendimentos', label: 'Atendimentos', path: '/atendimentos', icon: '()' },
+  { key: 'financeiro', label: 'Financeiro', path: '/financeiro', icon: '$$' },
+  { key: 'relatorios', label: 'Relatorios', path: '/relatorios', icon: '[]' },
+  { key: 'whatsapp', label: 'WhatsApp', path: '/whatsapp', icon: 'W' },
+  { key: 'agenda', label: 'Agenda', path: '/agenda', icon: 'A' },
+  { key: 'marketing', label: 'Marketing', path: '/marketing', icon: 'M' },
+  { key: 'configuracoes', label: 'Configuracoes', path: '/configuracoes', icon: 'C' }
 ]
+
+const SECTION_BY_PATH = {
+  '/dashboard': 'dashboard',
+  '/crm': 'crm',
+  '/atendimentos': 'atendimentos',
+  '/financeiro': 'financeiro',
+  '/relatorios': 'relatorios',
+  '/whatsapp': 'whatsapp',
+  '/agenda': 'agenda',
+  '/marketing': 'marketing',
+  '/configuracoes': 'configuracoes',
+  '/suporte': 'suporte',
+  '/documentacao': 'documentacao'
+}
+
+const SECTION_CONFIG = {
+  dashboard: {
+    title: 'Painel',
+    description: 'Visao geral da operacao em tempo real.'
+  },
+  crm: {
+    title: 'CRM',
+    description: 'Tela conectada com o menu. Modulo pronto para receber funcionalidades.'
+  },
+  atendimentos: {
+    title: 'Atendimentos',
+    description: 'Tela conectada com o menu. Modulo pronto para receber funcionalidades.'
+  },
+  financeiro: {
+    title: 'Financeiro',
+    description: 'Tela conectada com o menu. Modulo pronto para receber funcionalidades.'
+  },
+  relatorios: {
+    title: 'Relatorios',
+    description: 'Tela conectada com o menu. Modulo pronto para receber funcionalidades.'
+  },
+  whatsapp: {
+    title: 'WhatsApp',
+    description: 'Tela conectada com o menu. Modulo pronto para receber funcionalidades.'
+  },
+  agenda: {
+    title: 'Agenda',
+    description: 'Tela conectada com o menu. Modulo pronto para receber funcionalidades.'
+  },
+  marketing: {
+    title: 'Marketing',
+    description: 'Tela conectada com o menu. Modulo pronto para receber funcionalidades.'
+  },
+  configuracoes: {
+    title: 'Configuracoes',
+    description: 'Tela conectada com o menu. Modulo pronto para receber funcionalidades.'
+  },
+  suporte: {
+    title: 'Suporte',
+    description: 'Canal de suporte. Abra chamados e acompanhe atendimentos tecnicos.'
+  },
+  documentacao: {
+    title: 'Documentacao',
+    description: 'Base de conhecimento do sistema e guias de uso.'
+  }
+}
 
 const BOTTOM_HEALTH = [
   { label: 'Microsservicos', value: '5/5' },
@@ -99,7 +161,10 @@ function StatusBadge({ value }) {
   return <span className={`status-pill ${cls}`}>{normalized}</span>
 }
 
-function Dashboard() {
+function Dashboard({ section = 'dashboard' }) {
+  const activeSection = section
+  const isDashboard = activeSection === 'dashboard'
+  
   const [period, setPeriod] = useState('30d')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -109,33 +174,40 @@ function Dashboard() {
   const [atendimentos, setAtendimentos] = useState([])
   const [clientes, setClientes] = useState([])
 
-  const rawApiUrl = import.meta.env.VITE_API_URL
-  const apiBase = rawApiUrl
-    ? rawApiUrl.replace(/\/$/, '').endsWith('/api')
-      ? rawApiUrl.replace(/\/$/, '')
-      : `${rawApiUrl.replace(/\/$/, '')}/api`
-    : '/api'
-  const token = localStorage.getItem('access_token')
-
-  const authHeaders = useMemo(
-    () => ({
-      Authorization: `Bearer ${token}`
-    }),
-    [token]
-  )
+  const { token, logout: authLogout, isAuthenticated } = useContext(AuthContext)
 
   const fetchData = useCallback(async () => {
+    if (!isDashboard) {
+      setLoading(false)
+      return
+    }
+
+    // Verificar se há autenticação antes de fazer requisições
+    if (!isAuthenticated || !token) {
+      console.warn('[Dashboard] Usuário não autenticado. Redirecionando para login...')
+      setError('Você precisa fazer login para acessar o dashboard.')
+      setTimeout(() => {
+        authLogout()
+      }, 1500)
+      return
+    }
+
     try {
       setLoading(true)
       setError('')
 
+      console.log('[Dashboard] Carregando dados do dashboard...')
+
+      // Fazer todas as requisições em paralelo
       const [empresaResp, analyticsResp, dashboardResp, atendimentosResp, clientesResp] = await Promise.all([
-        axios.get(`${apiBase}/empresas/me`, { headers: authHeaders }),
-        axios.get(`${apiBase}/dashboard/analytics`, { params: { period }, headers: authHeaders }),
-        axios.get(`${apiBase}/dashboard`, { params: { period }, headers: authHeaders }),
-        axios.get(`${apiBase}/atendimentos`, { headers: authHeaders }),
-        axios.get(`${apiBase}/clientes`, { headers: authHeaders })
+        api.get('/empresas/me'),
+        api.get('/dashboard/analytics', { params: { period } }),
+        api.get('/dashboard', { params: { period } }),
+        api.get('/atendimentos'),
+        api.get('/clientes')
       ])
+
+      console.log('[Dashboard] Dados carregados com sucesso')
 
       setEmpresa(empresaResp.data)
       setAnalytics(analyticsResp.data)
@@ -143,20 +215,31 @@ function Dashboard() {
       setAtendimentos(Array.isArray(atendimentosResp.data) ? atendimentosResp.data : [])
       setClientes(Array.isArray(clientesResp.data) ? clientesResp.data : [])
     } catch (err) {
-      setError(err.response?.data?.detail || 'Falha ao carregar dashboard')
+      console.error('[Dashboard] Erro ao carregar dados:', err)
+      
+      // Se receber 401, redirecionar para login
+      if (err.response?.status === 401) {
+        console.warn('[Dashboard] Token expirado ou inválido (401)')
+        setError('Sua sessão expirou. Redirecionando para login...')
+        setTimeout(() => {
+          authLogout()
+        }, 1500)
+        return
+      }
+      
+      const errorMsg = err.response?.data?.detail || err.message || 'Erro ao carregar dados do dashboard'
+      setError(errorMsg)
     } finally {
       setLoading(false)
     }
-  }, [apiBase, authHeaders, period])
+  }, [isDashboard, period, isAuthenticated, token, authLogout])
 
   useEffect(() => {
     fetchData()
   }, [fetchData])
 
   const handleLogout = () => {
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
-    window.location.href = '/login'
+    authLogout()
   }
 
   const revenueMetric = analytics?.metrics?.revenue
@@ -260,14 +343,19 @@ function Dashboard() {
 
   const clientesRecentes = useMemo(() => clientes.slice(0, 6), [clientes])
   const topClientes = dashboardData?.top_clientes || []
-
   const isOperational = !error
+  const sectionConfig = SECTION_CONFIG[activeSection] || SECTION_CONFIG.dashboard
+
+  // Navegação robusta que funciona mesmo com problemas de React Router
+  const navigateTo = useCallback((path) => {
+    window.location.hash = path.startsWith('#') ? path : `#${path}`
+  }, [])
 
   return (
     <div className="cf-shell">
       <aside className="cf-sidebar">
         <div className="cf-brand">
-          <span className="brand-logo">◈</span>
+          <span className="brand-logo">{'<>'}</span>
           <div>
             <h1>ClientFlow</h1>
             <p>SaaS Intelligence Platform</p>
@@ -276,7 +364,13 @@ function Dashboard() {
 
         <nav>
           {SIDEBAR_MENU.map((item) => (
-            <button key={item.label} type="button" className={`menu-item ${item.active ? 'active' : ''}`}>
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => navigateTo(item.path)}
+              className={`menu-item ${activeSection === item.key ? 'active' : ''}`}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left' }}
+            >
               <span>{item.icon}</span>
               <span>{item.label}</span>
             </button>
@@ -284,12 +378,22 @@ function Dashboard() {
         </nav>
 
         <div className="sidebar-foot">
-          <button type="button" className="menu-item">
-            <span>◑</span>
+          <button 
+            type="button" 
+            onClick={() => navigateTo('/suporte')}
+            className={`menu-item ${activeSection === 'suporte' ? 'active' : ''}`}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left' }}
+          >
+            <span>?</span>
             <span>Suporte</span>
           </button>
-          <button type="button" className="menu-item">
-            <span>◒</span>
+          <button 
+            type="button" 
+            onClick={() => navigateTo('/documentacao')}
+            className={`menu-item ${activeSection === 'documentacao' ? 'active' : ''}`}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left' }}
+          >
+            <span>i</span>
             <span>Documentacao</span>
           </button>
         </div>
@@ -305,173 +409,186 @@ function Dashboard() {
               Plano {String(empresa?.plano_empresa || 'pro').trim().toUpperCase()}
             </span>
             <button type="button" className="icon-btn" onClick={fetchData}>
-              ↻
+              R
             </button>
             <button type="button" className="icon-btn" onClick={handleLogout}>
-              ⎋
+              X
             </button>
           </div>
         </header>
 
         {error ? <div className="cf-error">{error}</div> : null}
 
-        <section className="kpi-grid">
-          <KpiCard
-            title="Clientes ativos"
-            value={numberBR(dashboardData?.estatisticas?.total_clientes_ativos)}
-            delta={pctFormat(clientsMetric?.percentage)}
-            tone="blue"
-            subtitle={`${numberBR(clientes.length)} cadastrados`}
-          />
-          <KpiCard
-            title="Atendimentos hoje"
-            value={numberBR(appointmentsMetric?.current)}
-            delta={pctFormat(appointmentsMetric?.percentage)}
-            tone="amber"
-            subtitle={`${numberBR(dashboardData?.estatisticas?.total_atendimentos)} no total`}
-          />
-          <KpiCard
-            title="Faturamento"
-            value={moneyBR(revenueMetric?.current)}
-            delta={pctFormat(revenueMetric?.percentage)}
-            tone="green"
-            subtitle="Periodo selecionado"
-          />
-          <KpiCard
-            title="Status do sistema"
-            value={isOperational ? '100% operacional' : 'Instavel'}
-            delta={isOperational ? 'Online' : 'Alerta'}
-            tone={isOperational ? 'cyan' : 'amber'}
-            subtitle={loading ? 'Sincronizando...' : 'Atualizado'}
-          />
-        </section>
+        {isDashboard ? (
+          <>
+            <section className="kpi-grid">
+              <KpiCard
+                title="Clientes ativos"
+                value={numberBR(dashboardData?.estatisticas?.total_clientes_ativos)}
+                delta={pctFormat(clientsMetric?.percentage)}
+                tone="blue"
+                subtitle={`${numberBR(clientes.length)} cadastrados`}
+              />
+              <KpiCard
+                title="Atendimentos hoje"
+                value={numberBR(appointmentsMetric?.current)}
+                delta={pctFormat(appointmentsMetric?.percentage)}
+                tone="amber"
+                subtitle={`${numberBR(dashboardData?.estatisticas?.total_atendimentos)} no total`}
+              />
+              <KpiCard
+                title="Faturamento"
+                value={moneyBR(revenueMetric?.current)}
+                delta={pctFormat(revenueMetric?.percentage)}
+                tone="green"
+                subtitle="Periodo selecionado"
+              />
+              <KpiCard
+                title="Status do sistema"
+                value={isOperational ? '100% operacional' : 'Instavel'}
+                delta={isOperational ? 'Online' : 'Alerta'}
+                tone={isOperational ? 'cyan' : 'amber'}
+                subtitle={loading ? 'Sincronizando...' : 'Atualizado'}
+              />
+            </section>
 
-        <section className="workspace-grid">
-          <article className="cf-panel panel-lg">
-            <header className="panel-header">
-              <h2>Evolucao de atendimentos</h2>
-              <div className="period-switch">
-                {PERIOD_OPTIONS.map((item) => (
-                  <button
-                    key={item.key}
-                    type="button"
-                    className={period === item.key ? 'active' : ''}
-                    onClick={() => setPeriod(item.key)}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </header>
-            <div className="chart-lg">
-              <Line data={revenueChartData} options={revenueChartOptions} />
-            </div>
-          </article>
-
-          <article className="cf-panel panel-md">
-            <header className="panel-header">
-              <h2>Agenda de hoje</h2>
-              <button type="button" className="solid-btn">+ Novo</button>
-            </header>
-            <ul className="agenda-list">
-              {agenda.length === 0 ? <li className="agenda-empty">Sem atendimentos no periodo.</li> : null}
-              {agenda.map((item) => (
-                <li key={item.id}>
-                  <div>
-                    <p>{safeDate(item.data_atendimento)} · {item.tipo_servico || 'Servico'}</p>
-                    <small>{item.cliente_id ? `Cliente #${item.cliente_id}` : 'Cliente nao informado'}</small>
+            <section className="workspace-grid">
+              <article className="cf-panel panel-lg">
+                <header className="panel-header">
+                  <h2>Evolucao de atendimentos</h2>
+                  <div className="period-switch">
+                    {PERIOD_OPTIONS.map((item) => (
+                      <button
+                        key={item.key}
+                        type="button"
+                        className={period === item.key ? 'active' : ''}
+                        onClick={() => setPeriod(item.key)}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
                   </div>
-                  <StatusBadge value={item.status_atendimento} />
-                </li>
-              ))}
-            </ul>
-          </article>
+                </header>
+                <div className="chart-lg">
+                  <Line data={revenueChartData} options={revenueChartOptions} />
+                </div>
+              </article>
 
-          <article className="cf-panel panel-sm">
-            <h2>Cliente em atendimento</h2>
-            <div className="active-client">
-              <strong>{activeAppointment?.tipo_servico || 'Sem atendimento ativo'}</strong>
-              <p>Cliente #{activeAppointment?.cliente_id || '--'}</p>
-              <p>Horario {safeDate(activeAppointment?.data_atendimento)}</p>
-              <button type="button" className="solid-btn block">Finalizar atendimento</button>
-            </div>
-          </article>
-
-          <article className="cf-panel panel-sm">
-            <h2>Fluxo de vendas</h2>
-            <ul className="funnel-list">
-              <li><span>Leads</span><strong>{numberBR(clientes.length)}</strong></li>
-              <li><span>Orcamentos</span><strong>{numberBR(statusBuckets.pendente + statusBuckets['em andamento'])}</strong></li>
-              <li><span>Aprovados</span><strong>{numberBR(statusBuckets.concluido)}</strong></li>
-              <li><span>Entregues</span><strong>{numberBR(statusBuckets.entregue)}</strong></li>
-            </ul>
-          </article>
-
-          <article className="cf-panel panel-sm">
-            <h2>Atendimentos por status</h2>
-            <div className="chart-sm">
-              <Doughnut data={statusChartData} options={statusChartOptions} />
-            </div>
-            <ul className="status-legend">
-              {Object.entries(statusBuckets).map(([key, value]) => (
-                <li key={key}><span>{key}</span><strong>{numberBR(value)}</strong></li>
-              ))}
-            </ul>
-          </article>
-
-          <article className="cf-panel panel-md">
-            <header className="panel-header">
-              <h2>Clientes recentes</h2>
-              <button type="button" className="ghost-btn">Ver todos</button>
-            </header>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Cliente</th>
-                    <th>Contato</th>
-                    <th>Status</th>
-                    <th>Valor</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {clientesRecentes.map((item) => (
-                    <tr key={item.id}>
-                      <td>{item.nome}</td>
-                      <td>{item.telefone || '-'}</td>
-                      <td>
-                        <StatusBadge value={item.status_cliente || 'novo'} />
-                      </td>
-                      <td>{moneyBR((item.score_atividade || 0) * 15)}</td>
-                    </tr>
+              <article className="cf-panel panel-md">
+                <header className="panel-header">
+                  <h2>Agenda de hoje</h2>
+                  <button type="button" className="solid-btn">+ Novo</button>
+                </header>
+                <ul className="agenda-list">
+                  {agenda.length === 0 ? <li className="agenda-empty">Sem atendimentos no periodo.</li> : null}
+                  {agenda.map((item) => (
+                    <li key={item.id}>
+                      <div>
+                        <p>{safeDate(item.data_atendimento)} - {item.tipo_servico || 'Servico'}</p>
+                        <small>{item.cliente_id ? `Cliente #${item.cliente_id}` : 'Cliente nao informado'}</small>
+                      </div>
+                      <StatusBadge value={item.status_atendimento} />
+                    </li>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          </article>
+                </ul>
+              </article>
 
-          <article className="cf-panel panel-sm">
-            <h2>Top clientes</h2>
-            <ul className="top-client-list">
-              {topClientes.length === 0 ? <li>Sem dados do periodo</li> : null}
-              {topClientes.map((item) => (
-                <li key={item.id}>
-                  <span>{item.nome}</span>
-                  <strong>{numberBR(item.total_atendimentos)}</strong>
-                </li>
+              <article className="cf-panel panel-sm">
+                <h2>Cliente em atendimento</h2>
+                <div className="active-client">
+                  <strong>{activeAppointment?.tipo_servico || 'Sem atendimento ativo'}</strong>
+                  <p>Cliente #{activeAppointment?.cliente_id || '--'}</p>
+                  <p>Horario {safeDate(activeAppointment?.data_atendimento)}</p>
+                  <button type="button" className="solid-btn block">Finalizar atendimento</button>
+                </div>
+              </article>
+
+              <article className="cf-panel panel-sm">
+                <h2>Fluxo de vendas</h2>
+                <ul className="funnel-list">
+                  <li><span>Leads</span><strong>{numberBR(clientes.length)}</strong></li>
+                  <li><span>Orcamentos</span><strong>{numberBR(statusBuckets.pendente + statusBuckets['em andamento'])}</strong></li>
+                  <li><span>Aprovados</span><strong>{numberBR(statusBuckets.concluido)}</strong></li>
+                  <li><span>Entregues</span><strong>{numberBR(statusBuckets.entregue)}</strong></li>
+                </ul>
+              </article>
+
+              <article className="cf-panel panel-sm">
+                <h2>Atendimentos por status</h2>
+                <div className="chart-sm">
+                  <Doughnut data={statusChartData} options={statusChartOptions} />
+                </div>
+                <ul className="status-legend">
+                  {Object.entries(statusBuckets).map(([key, value]) => (
+                    <li key={key}><span>{key}</span><strong>{numberBR(value)}</strong></li>
+                  ))}
+                </ul>
+              </article>
+
+              <article className="cf-panel panel-md">
+                <header className="panel-header">
+                  <h2>Clientes recentes</h2>
+                  <button type="button" className="ghost-btn">Ver todos</button>
+                </header>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Cliente</th>
+                        <th>Contato</th>
+                        <th>Status</th>
+                        <th>Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {clientesRecentes.map((item) => (
+                        <tr key={item.id}>
+                          <td>{item.nome}</td>
+                          <td>{item.telefone || '-'}</td>
+                          <td>
+                            <StatusBadge value={item.status_cliente || 'novo'} />
+                          </td>
+                          <td>{moneyBR((item.score_atividade || 0) * 15)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+
+              <article className="cf-panel panel-sm">
+                <h2>Top clientes</h2>
+                <ul className="top-client-list">
+                  {topClientes.length === 0 ? <li>Sem dados do periodo</li> : null}
+                  {topClientes.map((item) => (
+                    <li key={item.id}>
+                      <span>{item.nome}</span>
+                      <strong>{numberBR(item.total_atendimentos)}</strong>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            </section>
+
+            <footer className="cf-footer cf-panel">
+              {BOTTOM_HEALTH.map((item) => (
+                <div key={item.label}>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </div>
               ))}
-            </ul>
-          </article>
-        </section>
-
-        <footer className="cf-footer cf-panel">
-          {BOTTOM_HEALTH.map((item) => (
-            <div key={item.label}>
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
-            </div>
-          ))}
-        </footer>
+            </footer>
+          </>
+        ) : (
+          <section className="workspace-grid">
+            <article className="cf-panel panel-lg" style={{ gridColumn: '1 / -1' }}>
+              <header className="panel-header">
+                <h2>{sectionConfig.title}</h2>
+              </header>
+              <p style={{ color: '#a8c1e7' }}>{sectionConfig.description}</p>
+            </article>
+          </section>
+        )}
       </div>
     </div>
   )

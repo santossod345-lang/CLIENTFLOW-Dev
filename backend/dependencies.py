@@ -2,10 +2,14 @@ from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend import auth, models
+import logging
 
+logger = logging.getLogger("clientflow.dependencies")
 
 def require_authenticated_empresa(token: str = Depends(auth.oauth2_scheme), db: Session = Depends(get_db)) -> models.Empresa:
+    logger.info("Token recebido: %s...", token[:20] if token else "VAZIO")
     empresa = auth.get_current_empresa_jwt(token, db)
+    logger.info("Usuário autenticado: empresa %s (%s)", empresa.id, empresa.nome_empresa)
     return empresa
 
 

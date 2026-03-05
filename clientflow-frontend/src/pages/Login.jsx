@@ -1,6 +1,6 @@
 import { useState, useContext } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import axios from 'axios'
+import api from '../services/api'
 import AuthContext from '../context/AuthContext'
 
 function Login() {
@@ -11,31 +11,32 @@ function Login() {
   const { setAuth } = useContext(AuthContext)
   const navigate = useNavigate()
 
-  const rawApiUrl = import.meta.env.VITE_API_URL
-  const apiBase = rawApiUrl
-    ? rawApiUrl.replace(/\/$/, '').endsWith('/api')
-      ? rawApiUrl.replace(/\/$/, '')
-      : `${rawApiUrl.replace(/\/$/, '')}/api`
-    : '/api'
-
   const handleLogin = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError('')
 
     try {
-      const response = await axios.post(`${apiBase}/empresas/login`, {
+      console.log('[Login] Tentando fazer login...')
+      
+      const response = await api.post('/empresas/login', {
         email_login: email,
         senha: password
       })
 
       const { access_token, refresh_token } = response.data
+      
+      console.log('[Login] Login bem-sucedido! Token recebido.')
+      
       localStorage.setItem('access_token', access_token)
       localStorage.setItem('refresh_token', refresh_token)
 
       setAuth({ token: access_token })
+      
+      console.log('[Login] Redirecionando para dashboard...')
       navigate('/dashboard')
     } catch (err) {
+      console.error('[Login] Erro ao fazer login:', err)
       setError(err.response?.data?.detail || 'Erro ao fazer login')
     } finally {
       setLoading(false)

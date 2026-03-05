@@ -1,12 +1,17 @@
-import { useContext } from 'react'
 import { Navigate } from 'react-router-dom'
+import { useContext } from 'react'
 import AuthContext from '../context/AuthContext'
 
 function PrivateRoute({ children }) {
-  const { auth } = useContext(AuthContext)
+  const { isAuthenticated, isLoading } = useContext(AuthContext)
 
-  if (!auth) {
-    return <Navigate to="/login" />
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-screen">Carregando...</div>
+  }
+
+  if (!isAuthenticated) {
+    console.log('[PrivateRoute] Usuário não autenticado. Redirecionando para login.')
+    return <Navigate to="/login" replace />
   }
 
   return children
