@@ -1,6 +1,8 @@
 import logging
+import time
+from collections import defaultdict, deque
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -11,6 +13,25 @@ from backend.schemas import EmpresaCreate, EmpresaLogin, EmpresaOut, RefreshRequ
 logger = logging.getLogger("clientflow.empresa")
 
 router = APIRouter(prefix="/api/empresas", tags=["empresas"])
+
+_login_attempts = defaultdict(lambda: deque(maxlen=30))
+MAX_LOGIN_ATTEMPTS = 5
+LOGIN_WINDOW_SECONDS = 60
+
+
+def _enforce_login_rate_limit(request: Request, email: str) -> None:
+    ip = request.client.host if request.client else 'unknown'
+    key = f'{ip}:{email.lower().strip()}'
+    now = time.time()
+    attempts = _login_attempts[key]
+
+    while attempts and now - attempts[0] > LOGIN_WINDOW_SECONDS:
+        attempts.popleft()
+
+    if len(attempts) >= MAX_LOGIN_ATTEMPTS:
+        raise HTTPException(status_code=429, detail='Muitas tentativas de login. Tente novamente em instantes.')
+
+    attempts.append(now)
 
 
 @router.get("/me", response_model=EmpresaOut)
@@ -49,7 +70,8 @@ def cadastrar_empresa(empresa: EmpresaCreate, db: Session = Depends(database.get
 
 
 @router.post("/login")
-def login_empresa(login: EmpresaLogin, db: Session = Depends(database.get_db)):
+def login_empresa(login: EmpresaLogin, request: Request, db: Session = Depends(database.get_db)):
+    _enforce_login_rate_limit(request, login.email_login)
     try:
         empresa = db.query(models.Empresa).filter(models.Empresa.email_login == login.email_login).first()
         if not empresa or not auth.verify_password(login.senha, empresa.senha_hash):

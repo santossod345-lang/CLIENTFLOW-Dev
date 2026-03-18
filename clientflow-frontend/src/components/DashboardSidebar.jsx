@@ -1,22 +1,20 @@
-import { NavLink, useLocation } from 'react-router-dom'
-import { useContext } from 'react'
-import AuthContext from '../context/AuthContext'
+import { NavLink } from 'react-router-dom'
 
 const SIDEBAR_MENU = [
-  { key: 'dashboard', label: 'Painel', path: '/dashboard', icon: '[ ]' },
-  { key: 'crm', label: 'CRM', path: '/crm', icon: '<>' },
+  { key: 'painel', label: 'Painel', path: '/painel', icon: '[ ]' },
+  { key: 'clientes', label: 'Clientes', path: '/clientes', icon: '<>' },
   { key: 'atendimentos', label: 'Atendimentos', path: '/atendimentos', icon: '()' },
   { key: 'financeiro', label: 'Financeiro', path: '/financeiro', icon: '$$' },
   { key: 'relatorios', label: 'Relatorios', path: '/relatorios', icon: '[]' },
   { key: 'whatsapp', label: 'WhatsApp', path: '/whatsapp', icon: 'W' },
   { key: 'agenda', label: 'Agenda', path: '/agenda', icon: 'A' },
   { key: 'marketing', label: 'Marketing', path: '/marketing', icon: 'M' },
+  { key: 'planos', label: 'Planos', path: '/planos', icon: 'P' },
   { key: 'configuracoes', label: 'Configuracoes', path: '/configuracoes', icon: 'C' }
 ]
 
 export default function DashboardSidebar() {
-  const location = useLocation()
-  const { logout } = useContext(AuthContext)
+  console.log('[Sidebar] Rendering navigation links')
 
   return (
     <aside className="cf-sidebar">

@@ -120,7 +120,7 @@ try:
     frontend_files = [
         'clientflow-frontend/src/context/AuthContext.jsx',
         'clientflow-frontend/src/services/api.js',
-        'clientflow-frontend/src/pages/Dashboard.jsx',
+        'clientflow-frontend/src/pages/Painel.jsx',
         'clientflow-frontend/src/pages/Login.jsx',
         'clientflow-frontend/src/App.jsx'
     ]
@@ -160,19 +160,21 @@ print("""
 🚀 PRÓXIMO PASSO:
   1. Inicie o backend: python backend/main.py
   2. Inicie o frontend: npm run dev
-  3. Acesse http://localhost:5173/#/login
-  4. Teste login/dashboard conforme GUIA_DE_TESTE.md
+  3. Acesse http://localhost:5173/login
+  4. Teste login e navegação de rotas protegidas
     
 🔗 ENDPOINTS DISPONÍVEIS:
-  POST   /api/empresas/login        - Fazer login
-  GET    /api/empresas/me           - Dados da empresa
+  POST   /api/auth/register         - Cadastrar empresa
+  POST   /api/auth/login            - Fazer login (JWT)
+  POST   /api/auth/refresh          - Renovar token
+  GET    /api/auth/me               - Dados da empresa autenticada
+  GET    /api/empresas/me           - Dados da empresa (legado)
   GET    /api/dashboard             - Dashboard estatísticas
   GET    /api/dashboard/analytics   - Dashboard gráficos
   GET    /api/clientes              - Lista de clientes
   GET    /api/atendimentos          - Lista de atendimentos
   
 📚 DOCUMENTAÇÃO:
-  - AUDITORIA_E_CORRECOES.md  (Análise técnica completa)
-  - GUIA_DE_TESTE.md          (Passo a passo de testes)
-  - STATUS_FINAL_.md          (Resumo executivo)
+  - README.md                 (Visão geral do projeto)
+  - /docs                     (Documentação interativa da API)
 """)

@@ -1,63 +1,126 @@
-import { createContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
+import api, { setApiAuthHandlers } from '../services/api'
 
 const AuthContext = createContext({
-  auth: null,
-  setAuth: () => {},
-  logout: () => {},
+  user: null,
   isAuthenticated: false,
-  token: null
+  isLoading: true,
+  token: null,
+  login: () => {},
+  logout: () => {},
+  refreshUser: async () => null,
+  setAuth: () => {}
 })
 
-/**
- * Provider para o AuthContext
- * Gerencia o estado de autenticação da aplicação
- * Sincroniza com localStorage para persistência
- */
+function parseUserFromToken(token) {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    return {
+      id: payload?.sub || null,
+      email: payload?.email || null
+    }
+  } catch {
+    return null
+  }
+}
+
 export function AuthProvider({ children }) {
-  const [auth, setAuth] = useState(null)
+  const [user, setUser] = useState(null)
+  const [token, setToken] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Carregar token do localStorage ao montar
-  useEffect(() => {
-    const token = localStorage.getItem('access_token')
-    if (token && token !== 'null' && token !== 'undefined' && token.trim() !== '') {
-      console.log('[AuthContext] Token encontrado ao carregar, restaurando sessão')
-      setAuth({ token })
-    }
-    setIsLoading(false)
-  }, [])
-
-  // Função para fazer logout
   const logout = useCallback(() => {
-    console.log('[AuthContext] Fazendo logout')
+    console.log('[Auth] logout')
     localStorage.removeItem('access_token')
     localStorage.removeItem('refresh_token')
-    setAuth(null)
-    window.location.hash = '#/login'
+    setToken(null)
+    setUser(null)
   }, [])
 
-  // Atualizar localStorage quando auth muda
-  useEffect(() => {
-    if (auth && auth.token) {
-      localStorage.setItem('access_token', auth.token)
-      console.log('[AuthContext] Token salvo em localStorage')
+  const login = useCallback(({ accessToken, refreshToken, user: incomingUser }) => {
+    if (!accessToken) return
+    localStorage.setItem('access_token', accessToken)
+    if (refreshToken) {
+      localStorage.setItem('refresh_token', refreshToken)
     }
-  }, [auth])
+    setToken(accessToken)
+    setUser(incomingUser || parseUserFromToken(accessToken))
+  }, [])
 
-  const value = {
-    auth,
-    setAuth,
-    logout,
-    isAuthenticated: !!auth?.token,
-    token: auth?.token || null,
-    isLoading
-  }
-
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
+  const setAuth = useCallback(
+    (nextAuth) => {
+      const nextToken = nextAuth?.token || nextAuth?.access_token || null
+      if (!nextToken) {
+        logout()
+        return
+      }
+      login({ accessToken: nextToken, user: nextAuth?.user })
+    },
+    [login, logout]
   )
+
+  const refreshUser = useCallback(async () => {
+    try {
+      const resp = await api.get('/auth/me')
+      setUser(resp.data)
+      return resp.data
+    } catch {
+      try {
+        const legacyResp = await api.get('/empresas/me')
+        setUser(legacyResp.data)
+        return legacyResp.data
+      } catch {
+        return null
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    setApiAuthHandlers({
+      onAuthFailure: logout,
+      onTokenRefreshed: (newToken) => {
+        setToken(newToken)
+      }
+    })
+  }, [logout])
+
+  useEffect(() => {
+    const bootstrapAuth = async () => {
+      const savedToken = localStorage.getItem('access_token')
+
+      if (!savedToken || savedToken === 'null' || savedToken === 'undefined') {
+        setIsLoading(false)
+        return
+      }
+
+      setToken(savedToken)
+      const currentUser = await refreshUser()
+
+      if (!currentUser) {
+        logout()
+      }
+
+      setIsLoading(false)
+    }
+
+    bootstrapAuth()
+  }, [logout, refreshUser])
+
+  const value = useMemo(
+    () => ({
+      user,
+      token,
+      isAuthenticated: Boolean(token),
+      isLoading,
+      login,
+      logout,
+      refreshUser,
+      setAuth
+    }),
+    [user, token, isLoading, login, logout, refreshUser, setAuth]
+  )
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export default AuthContext

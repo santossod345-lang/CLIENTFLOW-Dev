@@ -18,7 +18,7 @@ from typing import Optional
 from datetime import datetime, timedelta
 
 # Routers e módulos
-from backend.routers import empresa, clientes, atendimentos, public, dashboard
+from backend.routers import empresa, clientes, atendimentos, public, dashboard, auth_routes
 from backend import models, database, ai_module
 from backend.dependencies import require_authenticated_empresa, get_tenant_db
 from backend import auth
@@ -322,6 +322,8 @@ def _run_startup_migrations_if_needed() -> None:
 
 # ===== REGISTER ALL ROUTERS =====
 app.include_router(empresa.router)
+app.include_router(auth_routes.router)
+app.include_router(auth_routes.public_router)
 app.include_router(clientes.router)
 app.include_router(atendimentos.router)
 app.include_router(dashboard.router)
@@ -340,6 +342,21 @@ if serve_frontend and frontend_dist.exists():
 def readiness():
     """Kubernetes/Railway-style readiness probe (no DB check)"""
     return {"ready": True, "timestamp": datetime.now().isoformat()}
+
+# Middleware for request/response logging and crash-safe error handling.
+@app.middleware("http")
+async def request_logging_middleware(request: Request, call_next):
+    started_at = datetime.now()
+    try:
+        response = await call_next(request)
+        duration_ms = int((datetime.now() - started_at).total_seconds() * 1000)
+        logger.info("%s %s -> %s (%sms)", request.method, request.url.path, response.status_code, duration_ms)
+        return response
+    except Exception as exc:
+        duration_ms = int((datetime.now() - started_at).total_seconds() * 1000)
+        logger.exception("Unhandled error on %s %s after %sms", request.method, request.url.path, duration_ms)
+        return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
 
 # Middleware para injetar empresa_id do JWT
 @app.middleware("http")

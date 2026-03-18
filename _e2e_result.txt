@@ -1,0 +1,85 @@
+STDOUT:
+E2E_AUTH_OK
+company1_id= 4
+clients_before= 0
+clients_after= 1
+
+STDERR:
+SECRET_KEY not set; generated a temporary key for development
+2026-03-09 15:23:25,256 INFO CORS allowed origins: ['http://127.0.0.1:3000', 'http://127.0.0.1:5173', 'http://localhost:3000', 'http://localhost:5173']
+2026-03-09 15:23:25,256 INFO CORS allow_origin_regex: https://[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]\.vercel\.app
+2026-03-09 15:23:26,277 INFO POST /auth/register -> 201 (678ms)
+2026-03-09 15:23:26,286 INFO HTTP Request: POST http://testserver/auth/register "HTTP/1.1 201 Created"
+2026-03-09 15:23:26,826 INFO POST /auth/register -> 201 (531ms)
+2026-03-09 15:23:26,836 INFO HTTP Request: POST http://testserver/auth/register "HTTP/1.1 201 Created"
+2026-03-09 15:23:27,520 INFO Token JWT criado para sub=4, expira em 60 minutos
+2026-03-09 15:23:27,540 INFO POST /auth/login -> 200 (700ms)
+2026-03-09 15:23:27,549 INFO HTTP Request: POST http://testserver/auth/login "HTTP/1.1 200 OK"
+2026-03-09 15:23:27,555 INFO Token recebido na requisição: eyJhbGciOiJIUzI1NiIs... (rota: /auth/me)
+2026-03-09 15:23:27,557 INFO Empresa ID 4 extraída do JWT para rota /auth/me
+2026-03-09 15:23:27,565 INFO Token recebido: eyJhbGciOiJIUzI1NiIs...
+2026-03-09 15:23:27,565 INFO Decodificando JWT... (token: eyJhbGciOiJIUzI1NiIs...)
+2026-03-09 15:23:27,566 INFO JWT decodificado com sucesso. sub=4
+2026-03-09 15:23:27,566 INFO Buscando empresa com ID: 4
+2026-03-09 15:23:27,572 INFO Autenticação bem-sucedida para empresa: E2E Company 1 (ID: 4)
+2026-03-09 15:23:27,572 INFO Usuário autenticado: empresa 4 (E2E Company 1)
+2026-03-09 15:23:27,574 INFO GET /auth/me -> 200 (16ms)
+2026-03-09 15:23:27,584 INFO HTTP Request: GET http://testserver/auth/me "HTTP/1.1 200 OK"
+2026-03-09 15:23:27,588 INFO Token recebido na requisição: eyJhbGciOiJIUzI1NiIs... (rota: /api/clientes)
+2026-03-09 15:23:27,588 INFO Empresa ID 4 extraída do JWT para rota /api/clientes
+2026-03-09 15:23:27,590 INFO Token recebido: eyJhbGciOiJIUzI1NiIs...
+2026-03-09 15:23:27,590 INFO Decodificando JWT... (token: eyJhbGciOiJIUzI1NiIs...)
+2026-03-09 15:23:27,591 INFO JWT decodificado com sucesso. sub=4
+2026-03-09 15:23:27,591 INFO Buscando empresa com ID: 4
+2026-03-09 15:23:27,597 INFO Autenticação bem-sucedida para empresa: E2E Company 1 (ID: 4)
+2026-03-09 15:23:27,597 INFO Usuário autenticado: empresa 4 (E2E Company 1)
+2026-03-09 15:23:27,607 INFO GET /api/clientes -> 200 (18ms)
+2026-03-09 15:23:27,616 INFO HTTP Request: GET http://testserver/api/clientes "HTTP/1.1 200 OK"
+2026-03-09 15:23:27,620 INFO Token recebido na requisição: eyJhbGciOiJIUzI1NiIs... (rota: /api/clientes)
+2026-03-09 15:23:27,620 INFO Empresa ID 4 extraída do JWT para rota /api/clientes
+2026-03-09 15:23:27,623 INFO Token recebido: eyJhbGciOiJIUzI1NiIs...
+2026-03-09 15:23:27,623 INFO Decodificando JWT... (token: eyJhbGciOiJIUzI1NiIs...)
+2026-03-09 15:23:27,624 INFO JWT decodificado com sucesso. sub=4
+2026-03-09 15:23:27,624 INFO Buscando empresa com ID: 4
+2026-03-09 15:23:27,630 INFO Autenticação bem-sucedida para empresa: E2E Company 1 (ID: 4)
+2026-03-09 15:23:27,630 INFO Usuário autenticado: empresa 4 (E2E Company 1)
+2026-03-09 15:23:27,720 INFO POST /api/clientes -> 201 (99ms)
+2026-03-09 15:23:27,729 INFO HTTP Request: POST http://testserver/api/clientes "HTTP/1.1 201 Created"
+2026-03-09 15:23:27,736 INFO Token recebido na requisição: eyJhbGciOiJIUzI1NiIs... (rota: /api/clientes)
+2026-03-09 15:23:27,736 INFO Empresa ID 4 extraída do JWT para rota /api/clientes
+2026-03-09 15:23:27,738 INFO Token recebido: eyJhbGciOiJIUzI1NiIs...
+2026-03-09 15:23:27,739 INFO Decodificando JWT... (token: eyJhbGciOiJIUzI1NiIs...)
+2026-03-09 15:23:27,739 INFO JWT decodificado com sucesso. sub=4
+2026-03-09 15:23:27,739 INFO Buscando empresa com ID: 4
+2026-03-09 15:23:27,741 INFO Autenticação bem-sucedida para empresa: E2E Company 1 (ID: 4)
+2026-03-09 15:23:27,741 INFO Usuário autenticado: empresa 4 (E2E Company 1)
+2026-03-09 15:23:27,753 INFO GET /api/clientes -> 200 (16ms)
+2026-03-09 15:23:27,757 INFO HTTP Request: GET http://testserver/api/clientes "HTTP/1.1 200 OK"
+2026-03-09 15:23:28,312 INFO Token JWT criado para sub=5, expira em 60 minutos
+2026-03-09 15:23:28,336 INFO POST /auth/login -> 200 (570ms)
+2026-03-09 15:23:28,341 INFO HTTP Request: POST http://testserver/auth/login "HTTP/1.1 200 OK"
+2026-03-09 15:23:28,356 INFO Token recebido na requisição: eyJhbGciOiJIUzI1NiIs... (rota: /api/clientes)
+2026-03-09 15:23:28,357 INFO Empresa ID 5 extraída do JWT para rota /api/clientes
+2026-03-09 15:23:28,368 INFO Token recebido: eyJhbGciOiJIUzI1NiIs...
+2026-03-09 15:23:28,368 INFO Decodificando JWT... (token: eyJhbGciOiJIUzI1NiIs...)
+2026-03-09 15:23:28,369 INFO JWT decodificado com sucesso. sub=5
+2026-03-09 15:23:28,369 INFO Buscando empresa com ID: 5
+2026-03-09 15:23:28,371 INFO Autenticação bem-sucedida para empresa: E2E Company 2 (ID: 5)
+2026-03-09 15:23:28,371 INFO Usuário autenticado: empresa 5 (E2E Company 2)
+2026-03-09 15:23:28,375 INFO GET /api/clientes -> 200 (17ms)
+2026-03-09 15:23:28,386 INFO HTTP Request: GET http://testserver/api/clientes "HTTP/1.1 200 OK"
+2026-03-09 15:23:28,439 INFO Token JWT criado para sub=4, expira em 60 minutos
+2026-03-09 15:23:28,440 INFO POST /auth/refresh -> 200 (50ms)
+2026-03-09 15:23:28,450 INFO HTTP Request: POST http://testserver/auth/refresh "HTTP/1.1 200 OK"
+2026-03-09 15:23:28,456 INFO Token recebido na requisição: eyJhbGciOiJIUzI1NiIs... (rota: /auth/me)
+2026-03-09 15:23:28,457 INFO Empresa ID 4 extraída do JWT para rota /auth/me
+2026-03-09 15:23:28,466 INFO Token recebido: eyJhbGciOiJIUzI1NiIs...
+2026-03-09 15:23:28,466 INFO Decodificando JWT... (token: eyJhbGciOiJIUzI1NiIs...)
+2026-03-09 15:23:28,466 INFO JWT decodificado com sucesso. sub=4
+2026-03-09 15:23:28,466 INFO Buscando empresa com ID: 4
+2026-03-09 15:23:28,469 INFO Autenticação bem-sucedida para empresa: E2E Company 1 (ID: 4)
+2026-03-09 15:23:28,470 INFO Usuário autenticado: empresa 4 (E2E Company 1)
+2026-03-09 15:23:28,472 INFO GET /auth/me -> 200 (14ms)
+2026-03-09 15:23:28,481 INFO HTTP Request: GET http://testserver/auth/me "HTTP/1.1 200 OK"
+
+RC:0

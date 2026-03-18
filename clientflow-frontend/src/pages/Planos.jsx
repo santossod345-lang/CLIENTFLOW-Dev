@@ -1,32 +1,25 @@
 import { useContext, useEffect, useMemo, useState } from 'react'
-import axios from 'axios'
+import api from '../services/api'
 import AuthContext from '../context/AuthContext'
 
 function Planos() {
   const [empresa, setEmpresa] = useState(null)
   const [error, setError] = useState('')
-  const { token } = useContext(AuthContext)
-
-  const rawApiUrl = import.meta.env.VITE_API_URL
-  const apiBase = rawApiUrl
-    ? rawApiUrl.replace(/\/$/, '').endsWith('/api')
-      ? rawApiUrl.replace(/\/$/, '')
-      : `${rawApiUrl.replace(/\/$/, '')}/api`
-    : '/api'
+  const { token, logout } = useContext(AuthContext)
 
   useEffect(() => {
     let active = true
     const run = async () => {
       try {
         setError('')
-        const resp = await axios.get(`${apiBase}/empresas/me`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+        const resp = await api.get('/empresas/me')
         if (!active) return
         setEmpresa(resp.data)
       } catch (err) {
         if (!active) return
-        setError(err.response?.data?.detail || 'Erro ao carregar plano')
+        if (err.response?.status !== 401) {
+          setError(err.response?.data?.detail || 'Erro ao carregar plano')
+        }
       }
     }
 
@@ -34,7 +27,7 @@ function Planos() {
     return () => {
       active = false
     }
-  }, [apiBase, token])
+  }, [token])
 
   const planoLabel = useMemo(() => {
     const p = (empresa?.plano_empresa || 'free').toString().trim().toUpperCase()
@@ -45,9 +38,7 @@ function Planos() {
   const freeAtendimentos = empresa?.limite_atendimentos ?? 'X'
 
   const handleLogout = () => {
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
-    window.location.href = '/login'
+    logout()
   }
 
   return (

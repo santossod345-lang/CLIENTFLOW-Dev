@@ -22,7 +22,7 @@ function Cadastro() {
     try {
       console.log('[Cadastro] Tentando cadastrar empresa...')
       
-      await api.post('/empresas/cadastrar', {
+      await api.post('/auth/register', {
         nome_empresa: nomeEmpresa,
         nicho,
         telefone,

@@ -1,12 +1,13 @@
-import DashboardSidebar from '../components/DashboardSidebar'
+import { Outlet } from 'react-router-dom'
+import Sidebar from '../components/Sidebar'
 
 export default function DashboardLayout({ children }) {
+  console.log('[DashboardLayout] render shell')
+
   return (
     <div className="cf-shell">
-      <DashboardSidebar />
-      <div className="cf-main">
-        {children}
-      </div>
+      <Sidebar />
+      <main className="cf-main">{children || <Outlet />}</main>
     </div>
   )
 }

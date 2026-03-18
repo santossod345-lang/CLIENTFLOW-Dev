@@ -8,7 +8,7 @@ function Login() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const { setAuth } = useContext(AuthContext)
+  const { login } = useContext(AuthContext)
   const navigate = useNavigate()
 
   const handleLogin = async (e) => {
@@ -19,7 +19,7 @@ function Login() {
     try {
       console.log('[Login] Tentando fazer login...')
       
-      const response = await api.post('/empresas/login', {
+      const response = await api.post('/auth/login', {
         email_login: email,
         senha: password
       })
@@ -28,13 +28,10 @@ function Login() {
       
       console.log('[Login] Login bem-sucedido! Token recebido.')
       
-      localStorage.setItem('access_token', access_token)
-      localStorage.setItem('refresh_token', refresh_token)
-
-      setAuth({ token: access_token })
+      login({ accessToken: access_token, refreshToken: refresh_token })
       
-      console.log('[Login] Redirecionando para dashboard...')
-      navigate('/dashboard')
+      console.log('[Login] Redirecionando para /painel...')
+      navigate('/painel')
     } catch (err) {
       console.error('[Login] Erro ao fazer login:', err)
       setError(err.response?.data?.detail || 'Erro ao fazer login')

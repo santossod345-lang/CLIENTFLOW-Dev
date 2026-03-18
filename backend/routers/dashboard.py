@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from backend import models, database
-from backend.dependencies import require_authenticated_empresa
+from backend.dependencies import require_authenticated_empresa, get_tenant_db
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from typing import List
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 def obter_dashboard(
     period: str = Query("30d"),
     empresa: models.Empresa = Depends(require_authenticated_empresa),
-    db: Session = Depends(database.get_db)
+    db: Session = Depends(get_tenant_db)
 ):
     """
     Retorna estatísticas do dashboard filtradas por empresa

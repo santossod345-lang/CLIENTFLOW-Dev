@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from backend import database, models
-from backend.dependencies import require_authenticated_empresa
+from backend.dependencies import require_authenticated_empresa, get_tenant_db
 from backend.plan_limits import check_plan_limits
 from pydantic import BaseModel, Field
 
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/api/atendimentos", tags=["atendimentos"])
 @router.get("", response_model=List[dict])
 def listar_atendimentos(
     empresa: models.Empresa = Depends(require_authenticated_empresa),
-    db: Session = Depends(database.get_db),
+    db: Session = Depends(get_tenant_db),
 ):
     atendimentos = (
         db.query(models.Atendimento)
@@ -50,7 +50,7 @@ def listar_atendimentos(
 def criar_atendimento(
     body: AtendimentoCreateApi,
     empresa: models.Empresa = Depends(require_authenticated_empresa),
-    db: Session = Depends(database.get_db),
+    db: Session = Depends(get_tenant_db),
 ):
     # Ensure client belongs to this empresa.
     cliente = (

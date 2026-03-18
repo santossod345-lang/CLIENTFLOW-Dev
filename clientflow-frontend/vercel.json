@@ -20,6 +20,10 @@
       "source": "/api/:path*",
       "destination": "https://clientflow-production-99f1.up.railway.app/api/:path*"
     },
+    {
+      "source": "/auth/:path*",
+      "destination": "https://clientflow-production-99f1.up.railway.app/auth/:path*"
+    },
     { "source": "/((?!assets/).*)", "destination": "/index.html" }
   ]
 }

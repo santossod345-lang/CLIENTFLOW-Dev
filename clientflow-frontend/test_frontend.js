@@ -54,7 +54,7 @@ const files = [
   ['src/context/AuthContext.jsx', 'AuthContext.jsx'],
   ['src/services/api.js', 'api.js (NOVO)'],
   ['src/pages/Login.jsx', 'Login.jsx'],
-  ['src/pages/Dashboard.jsx', 'Dashboard.jsx'],
+  ['src/pages/Painel.jsx', 'Painel.jsx'],
   ['package.json', 'package.json'],
   ['vite.config.js', 'vite.config.js'],
 ];
@@ -110,7 +110,7 @@ console.log(`✅ API Service - OK (${apiPassed}/${apiTests.length} validações)
 console.log("[4/5] Validando componentes atualizados...");
 const componentTests = [
   ['src/pages/Login.jsx', "import api from '../services/api'", 'Login usando api centralizada'],
-  ['src/pages/Dashboard.jsx', "import api from '../services/api'", 'Dashboard usando api centralizada'],
+  ['src/pages/Painel.jsx', "import api from '../services/api'", 'Painel usando api centralizada'],
   ['src/pages/Cadastro.jsx', "import api from '../services/api'", 'Cadastro usando api centralizada'],
   ['src/App.jsx', "import api", 'App usando api'],
 ];
@@ -166,5 +166,5 @@ console.log(`
   → Sem erro "Não autenticado"
 
 📚 DOCUMENTAÇÃO:
-  - GUIA_DE_TESTE.md (Passo a passo de testes)
+  - README.md (Passo a passo de setup)
 `);

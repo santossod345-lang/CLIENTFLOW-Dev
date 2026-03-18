@@ -1,5 +1,5 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import axios from 'axios'
+import api from '../services/api'
 import AuthContext from '../context/AuthContext'
 import {
   Chart as ChartJS,
@@ -100,27 +100,6 @@ export default function PainelPage() {
 
   const { token, logout } = useContext(AuthContext)
 
-  const rawApiUrl = import.meta.env.VITE_API_URL
-  const apiBase = rawApiUrl
-    ? rawApiUrl.replace(/\/$/, '').endsWith('/api')
-      ? rawApiUrl.replace(/\/$/, '')
-      : `${rawApiUrl.replace(/\/$/, '')}/api`
-    : '/api'
-
-  const authHeaders = useMemo(
-    () => {
-      if (!token || token === 'null' || token === 'undefined') {
-        console.warn('[Painel] Token inválido ou ausente')
-        return { 'Content-Type': 'application/json' }
-      }
-      return {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    },
-    [token]
-  )
-
   const fetchData = useCallback(async () => {
     if (!token || token === 'null' || token === 'undefined') {
       setLoading(false)
@@ -133,11 +112,11 @@ export default function PainelPage() {
       setError('')
 
       const [empresaResp, analyticsResp, dashboardResp, atendimentosResp, clientesResp] = await Promise.all([
-        axios.get(`${apiBase}/empresas/me`, { headers: authHeaders }),
-        axios.get(`${apiBase}/dashboard/analytics`, { params: { period }, headers: authHeaders }),
-        axios.get(`${apiBase}/dashboard`, { params: { period }, headers: authHeaders }),
-        axios.get(`${apiBase}/atendimentos`, { headers: authHeaders }),
-        axios.get(`${apiBase}/clientes`, { headers: authHeaders })
+        api.get('/empresas/me'),
+        api.get('/dashboard/analytics', { params: { period } }),
+        api.get('/dashboard', { params: { period } }),
+        api.get('/atendimentos'),
+        api.get('/clientes')
       ])
 
       setEmpresa(empresaResp.data)
@@ -156,7 +135,7 @@ export default function PainelPage() {
     } finally {
       setLoading(false)
     }
-  }, [apiBase, authHeaders, period, token])
+  }, [period, token])
 
   useEffect(() => {
     fetchData()

@@ -13,7 +13,7 @@ import logging
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/empresas/login")
 logger = logging.getLogger("clientflow.auth")
 environment = os.getenv("ENVIRONMENT", "development").lower()
-SECRET_KEY = os.getenv("JWT_SECRET_KEY") or os.getenv("SECRET_KEY") or ""
+SECRET_KEY = os.getenv("JWT_SECRET") or os.getenv("JWT_SECRET_KEY") or os.getenv("SECRET_KEY") or ""
 if not SECRET_KEY:
     # Do not crash the service at import time; Railway will restart-loop and produce 502.
     # Generate an ephemeral key so the API can start, but log loudly so it gets fixed.
@@ -26,7 +26,9 @@ if not SECRET_KEY:
         logger.warning("SECRET_KEY not set; generated a temporary key for development")
 
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+ACCESS_TOKEN_EXPIRE_MINUTES = int(
+    os.getenv("JWT_EXPIRE_MINUTES") or os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60")
+)
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
 
 

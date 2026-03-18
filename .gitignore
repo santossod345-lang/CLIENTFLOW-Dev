@@ -62,3 +62,8 @@ htmlcov/
 # Documentação
 docs/_build/
 .env.railway
+
+# Pacote portátil (não commitar no git)
+portable_tools/
+offline_packages/
+*.bat
